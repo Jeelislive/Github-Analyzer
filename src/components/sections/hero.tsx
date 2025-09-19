@@ -6,8 +6,10 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Github } from 'lucide-react'
 import { useState } from 'react'
+import { useSession, signIn } from 'next-auth/react'
 
 export default function Hero() {
+  const { data: session } = useSession()
   const [repoUrl, setRepoUrl] = useState('')
   const [error, setError] = useState('')
   const [loadingState, setLoadingState] = useState({
@@ -23,6 +25,10 @@ export default function Hero() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!session?.user) {
+      setError('Please sign in to analyze a repository')
+      return
+    }
     if (!repoUrl) {
       setError('Please enter a valid GitHub repository URL')
       return
@@ -82,7 +88,7 @@ export default function Hero() {
                     value={repoUrl}
                     onChange={handleInputChange}
                     className="h-12"
-                    disabled={loadingState.isLoading}
+                    disabled={loadingState.isLoading || !session?.user}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-2">{error}</p>
@@ -92,9 +98,9 @@ export default function Hero() {
                   type="submit" 
                   size="lg" 
                   className="h-12 px-6"
-                  disabled={loadingState.isLoading}
+                  disabled={loadingState.isLoading || !session?.user}
                 >
-                  {loadingState.isLoading ? 'Analyzing...' : 'Analyze Repo'}
+                  {loadingState.isLoading ? 'Analyzing...' : (!session?.user ? 'Sign in to analyze' : 'Analyze Repo')}
                 </Button>
               </div>
               
@@ -107,7 +113,7 @@ export default function Hero() {
             </form>
 
             <div className="flex gap-4">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => signIn('github')}>
                 <Github className="h-4 w-4" />
                 Sign in with GitHub
               </Button>

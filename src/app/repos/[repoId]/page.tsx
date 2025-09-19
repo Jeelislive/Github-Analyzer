@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import ArchitectureDiagram from '@/components/ui/architecture-diagram'
-import { ArrowLeft, Search, Code, FileText, GitBranch, Zap } from 'lucide-react'
+import MermaidArchitectureDiagram from '@/components/ui/mermaid-architecture-diagram'
+import ComponentCodeModal from '@/components/ui/component-code-modal'
+import DeleteConfirmationDialog from '@/components/ui/delete-confirmation-dialog'
+import { ArrowLeft, Search, Code, FileText, GitBranch, Zap, Eye, Trash2 } from 'lucide-react'
 
 interface Component {
   id: string
@@ -88,12 +90,14 @@ export default function RepositoryDetailPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [enhancedData, setEnhancedData] = useState<any>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (repoId) {
       fetchRepositoryDetails()
-      fetchComponents()
-      fetchArchitecture()
+      fetchEnhancedData()
     }
   }, [repoId])
 
@@ -109,29 +113,39 @@ export default function RepositoryDetailPage() {
     }
   }
 
-  const fetchComponents = async () => {
+  const fetchEnhancedData = async () => {
     try {
-      const response = await fetch(`/api/components?repoId=${repoId}`)
+      const response = await fetch(`/api/repos/${repoId}`)
       if (response.ok) {
         const data = await response.json()
-        setComponents(data.components)
+        setEnhancedData(data.data)
+        
+        // Extract architecture data
+        if (data.data?.architecture) {
+          setArchitecture(data.data.architecture)
+        }
+        
+        // Extract components from architecture nodes
+        if (data.data?.architecture?.nodes) {
+          const extractedComponents = data.data.architecture.nodes
+            .filter((node: any) => node.type === 'component' || node.type === 'page')
+            .map((node: any) => ({
+              id: node.id,
+              name: node.cleanName || node.label,
+              type: node.type,
+              path: node.path,
+              startLine: 1,
+              endLine: Math.floor(node.size / 50) || 10,
+              complexity: node.complexity || 0,
+              description: `Component from ${node.path}`
+            }))
+          setComponents(extractedComponents)
+        }
       }
     } catch (error) {
-      console.error('Failed to fetch components:', error)
+      console.error('Failed to fetch enhanced data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchArchitecture = async () => {
-    try {
-      const response = await fetch(`/api/repos/${repoId}/architecture`)
-      if (response.ok) {
-        const data = await response.json()
-        setArchitecture(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch architecture:', error)
     }
   }
 
@@ -150,6 +164,35 @@ export default function RepositoryDetailPage() {
   const handleNodeClick = (node: any) => {
     // When a node is clicked in the diagram, show file details
     fetchFileDetails(node.id)
+  }
+
+  const handleDeleteRepository = async () => {
+    if (!repoId) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/repos/${repoId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        // Redirect to dashboard after successful deletion
+        router.push('/dashboard')
+      } else {
+        const error = await response.json()
+        console.error('Delete failed:', error)
+        alert('Failed to delete repository analysis. Please try again.')
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('An error occurred while deleting the repository analysis.')
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
+    }
   }
 
   const filteredComponents = components.filter(component => {
@@ -180,25 +223,36 @@ export default function RepositoryDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">
-            {repository?.owner}/{repository?.repoName}
-          </h1>
-          <p className="text-muted-foreground">{repository?.description}</p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">
+              {repository?.owner}/{repository?.repoName}
+            </h1>
+            <p className="text-muted-foreground">{repository?.description}</p>
+          </div>
         </div>
+        
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setShowDeleteDialog(true)}
+          className="flex items-center gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Analysis
+        </Button>
       </div>
 
       <Tabs defaultValue="components" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="components">Components</TabsTrigger>
           <TabsTrigger value="architecture">Architecture</TabsTrigger>
           <TabsTrigger value="documentation">Documentation</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="components" className="space-y-6">
@@ -267,9 +321,17 @@ export default function RepositoryDetailPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 mt-3">
-                  <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
-                  <span className="text-sm truncate">Complexity: {component.complexity}</span>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
+                    <span className="text-sm truncate">Complexity: {component.complexity}</span>
+                  </div>
+                  <ComponentCodeModal component={component}>
+                    <Button size="sm" variant="outline" className="h-8 px-3">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Code
+                    </Button>
+                  </ComponentCodeModal>
                 </div>
               </Card>
             ))}
@@ -305,8 +367,8 @@ export default function RepositoryDetailPage() {
                 </Card>
               </div>
 
-              {/* Interactive D3.js Architecture Diagram */}
-              <ArchitectureDiagram 
+              {/* Interactive Mermaid Architecture Diagram */}
+              <MermaidArchitectureDiagram 
                 data={architecture} 
                 onNodeClick={handleNodeClick}
               />
@@ -341,46 +403,6 @@ export default function RepositoryDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-6">
-          {repository?.analytics && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-5 h-5 text-blue-500" />
-                  <span className="font-medium">Total Files</span>
-                </div>
-                <p className="text-2xl font-bold">{repository.analytics.totalFiles}</p>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Code className="w-5 h-5 text-green-500" />
-                  <span className="font-medium">Lines of Code</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {(repository.analytics.totalLinesOfCode || 0).toLocaleString()}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-5 h-5 text-yellow-500" />
-                  <span className="font-medium">Complexity Score</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {Math.round(repository.analytics.complexityScore || 0)}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <GitBranch className="w-5 h-5 text-purple-500" />
-                  <span className="font-medium">Maintainability</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {Math.round(repository.analytics.maintainabilityIndex || 0)}%
-                </p>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* File Detail Modal */}
@@ -482,6 +504,23 @@ export default function RepositoryDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDeleteRepository}
+        repository={{
+          id: repoId,
+          owner: repository?.owner || '',
+          repoName: repository?.repoName || '',
+          description: repository?.description,
+          language: repository?.language,
+          stars: repository?.stars,
+          forks: repository?.forks
+        }}
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

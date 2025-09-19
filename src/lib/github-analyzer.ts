@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest"
 import { prisma } from "./prisma"
 import { analyzeCode, parseImports, calculateComplexity } from "./code-analyzer"
 import { generateDocumentation } from "./documentation-generator"
+import { GeminiAnalyzer } from "./gemini-analyzer"
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
@@ -433,8 +434,8 @@ async function generateAnalytics(repoId: string) {
 
 async function generateRepoDocumentation(repoId: string, owner: string, repoName: string) {
   try {
-    // Get README
-    let readme = null
+    // Get existing README (if any)
+    let existingReadme = null
     try {
       const { data: readmeData } = await octokit.repos.getContent({
         owner,
@@ -443,12 +444,29 @@ async function generateRepoDocumentation(repoId: string, owner: string, repoName
       })
       
       if ('content' in readmeData) {
-        readme = Buffer.from(readmeData.content, 'base64').toString('utf-8')
+        existingReadme = Buffer.from(readmeData.content, 'base64').toString('utf-8')
       }
     } catch (error) {
       // README might not exist
     }
 
+    // Get repository data for AI analysis
+    const repo = await prisma.analyzedRepo.findUnique({
+      where: { id: repoId },
+      include: {
+        components: true,
+        analytics: true
+      }
+    })
+
+    if (!repo) {
+      console.warn('Repository not found for documentation generation')
+      return
+    }
+
+    // Generate AI-powered documentation using Gemini
+    const aiGeneratedReadme = await generateAIReadme(repo, owner, repoName)
+    
     // Generate API documentation
     const components = await prisma.repoComponent.findMany({
       where: { repoId }
@@ -459,7 +477,8 @@ async function generateRepoDocumentation(repoId: string, owner: string, repoName
     await prisma.repoDocumentation.create({
       data: {
         repoId,
-        readme,
+        readme: aiGeneratedReadme, // Use AI-generated README instead of existing one
+        originalReadme: existingReadme, // Store original README separately
         apiDocs
       }
     })
@@ -562,4 +581,142 @@ function calculateMaintainabilityIndex(files: any[]): number {
   const avgLinesOfCode = files.reduce((sum, file) => sum + (file.linesOfCode || 0), 0) / files.length
   
   return Math.max(0, 171 - 5.2 * Math.log(avgLinesOfCode) - 0.23 * avgComplexity)
+}
+
+// AI-powered README generation using Gemini
+async function generateAIReadme(repo: any, owner: string, repoName: string): Promise<string> {
+  try {
+    const geminiAnalyzer = new GeminiAnalyzer()
+    
+    // Prepare repository data for Gemini analysis
+    const repoData = {
+      name: repoName,
+      description: repo.description || '',
+      language: repo.language || 'Unknown',
+      files: repo.components?.map((comp: any) => ({
+        path: comp.path,
+        content: '', // We don't store full content in components
+        size: 0
+      })) || [],
+      commits: [], // We don't have commit data in this context
+      contributors: [],
+      issues: [],
+      pullRequests: [],
+      dependencies: [],
+      readme: null,
+      packageJson: null
+    }
+
+    // Generate comprehensive README using Gemini
+    const insights = await geminiAnalyzer.analyzeRepository(repoData)
+    
+    // Create a comprehensive README based on Gemini insights
+    const readme = `# ${repoName}
+
+${insights.projectSummary.purpose}
+
+## 📋 Project Overview
+
+- **Architecture**: ${insights.projectSummary.architecturalPattern}
+- **Complexity**: ${insights.projectSummary.complexity}
+- **Maturity**: ${insights.projectSummary.maturity}
+- **Main Technologies**: ${insights.projectSummary.mainTechnologies.join(', ')}
+
+## 🏗️ Architecture
+
+${insights.architecture.layers.map(layer => 
+  `### ${layer.name}\n${layer.purpose}\n\n**Components:**\n${layer.components.map(comp => `- ${comp}`).join('\n')}\n`
+).join('\n')}
+
+## 🎯 Design Patterns
+
+${insights.architecture.designPatterns.map(pattern => `- ${pattern}`).join('\n')}
+
+## ⚠️ Anti-Patterns
+
+${insights.architecture.antiPatterns.map(pattern => `- ${pattern}`).join('\n')}
+
+## 📊 Code Quality
+
+**Overall Score**: ${insights.codeQuality.overallScore}/100
+
+### Strengths
+${insights.codeQuality.strengths.map(strength => `- ${strength}`).join('\n')}
+
+### Areas for Improvement
+${insights.codeQuality.weaknesses.map(weakness => `- ${weakness}`).join('\n')}
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
+\`\`\`bash
+git clone https://github.com/${owner}/${repoName}.git
+cd ${repoName}
+npm install
+\`\`\`
+
+### Development
+\`\`\`bash
+npm run dev
+\`\`\`
+
+## 📁 Project Structure
+
+${insights.architecture.layers.map(layer => 
+  `### ${layer.name}\n\`\`\`\n${layer.components.join('\n')}\n\`\`\`\n`
+).join('\n')}
+
+## 🔧 Recommendations
+
+### Immediate Actions
+${insights.recommendations.immediate.map(rec => `- ${rec}`).join('\n')}
+
+### Short-term Improvements
+${insights.recommendations.shortTerm.map(rec => `- ${rec}`).join('\n')}
+
+### Long-term Goals
+${insights.recommendations.longTerm.map(rec => `- ${rec}`).join('\n')}
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (\`git checkout -b feature/AmazingFeature\`)
+3. Commit your changes (\`git commit -m 'Add some AmazingFeature'\`)
+4. Push to the branch (\`git push origin feature/AmazingFeature\`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+*This README was automatically generated by AI based on code analysis.*
+`
+
+    return readme
+  } catch (error) {
+    console.error('Failed to generate AI README:', error)
+    // Fallback to basic README
+    return `# ${repoName}
+
+${repo.description || 'A GitHub repository'}
+
+## Getting Started
+
+This repository has been analyzed and documented automatically.
+
+## Project Structure
+
+This project contains various components and files that have been automatically analyzed for better understanding.
+
+---
+
+*This README was automatically generated.*
+`
+  }
 }

@@ -71,13 +71,11 @@ export default function AuthPage() {
   }
 
   const handleGitHubSignIn = () => {
-    signIn('github', { callbackUrl: '/' })
+    signIn('github', { callbackUrl: '/dashboard' })
   }
 
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/' })
-    // redirect to dashboard after sign in
-    // router.push('/dashboard')
+    signIn('google', { callbackUrl: '/dashboard' })
   }
 
   return (

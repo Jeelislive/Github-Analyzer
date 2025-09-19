@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Github, Menu, X, User, Settings, LogOut, CreditCard, BookOpen } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
   DropdownMenu,
@@ -18,6 +19,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { data: session, status, update } = useSession()
+  const pathname = usePathname()
+  const showMarketingNav = pathname === '/'
 
   // Force session refresh on mount to catch OAuth redirects
   useEffect(() => {
@@ -55,18 +58,20 @@ export default function Header() {
           <span className="text-xl font-bold">GitHub Analyzer</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
-            Features
-          </Link>
-          <Link href="#how-it-works" className="text-sm font-medium hover:text-primary transition-colors">
-            How it works
-          </Link>
-          <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">
-            Pricing
-          </Link>
-        </nav>
+        {/* Desktop Navigation (only on home '/') */}
+        {showMarketingNav && (
+          <nav className="hidden md:flex items-center space-x-6">
+            <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
+              Features
+            </Link>
+            <Link href="#how-it-works" className="text-sm font-medium hover:text-primary transition-colors">
+              How it works
+            </Link>
+            <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">
+              Pricing
+            </Link>
+          </nav>
+        )}
 
         {/* Desktop Auth Buttons */}
         <div className="hidden md:flex items-center space-x-4">
@@ -159,27 +164,31 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
           <div className="container py-4 space-y-4">
-            <Link 
-              href="#features" 
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Features
-            </Link>
-            <Link 
-              href="#how-it-works" 
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              How it works
-            </Link>
-            <Link 
-              href="#pricing" 
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Pricing
-            </Link>
+            {showMarketingNav && (
+              <>
+                <Link 
+                  href="#features" 
+                  className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Features
+                </Link>
+                <Link 
+                  href="#how-it-works" 
+                  className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  How it works
+                </Link>
+                <Link 
+                  href="#pricing" 
+                  className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Pricing
+                </Link>
+              </>
+            )}
             <div className="flex flex-col space-y-2 pt-4">
               {status === 'loading' ? (
                 <div className="w-full h-8 bg-muted rounded animate-pulse" />

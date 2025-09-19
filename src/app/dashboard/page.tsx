@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import AIInsightsDashboard from '@/components/ui/ai-insights-dashboard'
 import CollaborationNetwork from '@/components/ui/collaboration-network'
 import EvolutionTimeline from '@/components/ui/evolution-timeline'
-import { GitBranch, Plus, Search, Sparkles, Brain, Zap, AlertCircle, CheckCircle } from 'lucide-react'
+import { GitBranch, Plus, Search, Sparkles, Brain, Zap, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
 
 interface Repository {
   id: string
@@ -33,7 +33,8 @@ export default function DashboardPage() {
   const [enhancedAnalyzing, setEnhancedAnalyzing] = useState(false)
   const [repoUrl, setRepoUrl] = useState('')
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null)
-  const [activeTab, setActiveTab] = useState('overview') // Add state for active tab
+  const [activeTab, setActiveTab] = useState('repositories') // Default to repositories
+  const [deletingRepoId, setDeletingRepoId] = useState<string | null>(null)
 
   useEffect(() => {
     if (session?.user) {
@@ -146,6 +147,38 @@ export default function DashboardPage() {
     setActiveTab('insights') // Switch to insights tab
   }
 
+  // Function to handle repository deletion
+  const handleDeleteRepository = async (repoId: string) => {
+    if (!confirm('Are you sure you want to delete this repository analysis? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingRepoId(repoId)
+    try {
+      const response = await fetch(`/api/repos/${repoId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        // Remove the repository from the list
+        setRepositories(repos => repos.filter(repo => repo.id !== repoId))
+        console.log('Repository analysis deleted successfully')
+      } else {
+        const error = await response.json()
+        console.error('Delete failed:', error)
+        alert('Failed to delete repository analysis. Please try again.')
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('An error occurred while deleting the repository analysis.')
+    } finally {
+      setDeletingRepoId(null)
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
@@ -187,34 +220,23 @@ export default function DashboardPage() {
 
           <div className="flex gap-3">
             <Button 
-              onClick={() => analyzeRepository(false)}
-              disabled={!repoUrl || analyzing || enhancedAnalyzing}
-              className="flex items-center gap-2"
-            >
-              <GitBranch className="w-4 h-4" />
-              {analyzing ? 'Analyzing...' : 'Quick Analysis'}
-            </Button>
-            
-            <Button 
               onClick={() => analyzeRepository(true)}
-              disabled={!repoUrl || analyzing || enhancedAnalyzing}
+              disabled={!repoUrl || enhancedAnalyzing}
               className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               <Sparkles className="w-4 h-4" />
-              {enhancedAnalyzing ? 'AI Analyzing...' : 'Enhanced AI Analysis'}
+              {enhancedAnalyzing ? 'Analyzing...' : 'Analyze Repository'}
             </Button>
           </div>
 
           <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
-            <p><strong>Quick Analysis:</strong> Basic repository structure and component analysis</p>
-            <p><strong>Enhanced AI Analysis:</strong> Comprehensive analysis with Gemini AI including code quality assessment, architecture insights, team collaboration patterns, and actionable recommendations</p>
+            <p><strong>Comprehensive Analysis:</strong> Runs the full enhanced analysis powered by Gemini AI, including code quality assessment, architecture insights, team collaboration patterns, and actionable recommendations.</p>
           </div>
         </div>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
           <TabsTrigger 
             value="insights" 
@@ -243,9 +265,9 @@ export default function DashboardPage() {
             </div>
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          {/* Overview Stats */}
+        
+        <TabsContent value="repositories" className="space-y-6">
+          {/* Summary Metrics moved from Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-2">
@@ -286,47 +308,6 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Recent Activity */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Recent Analysis Activity</h3>
-            <div className="space-y-3">
-              {repositories
-                .sort((a, b) => new Date(b.lastAnalyzed).getTime() - new Date(a.lastAnalyzed).getTime())
-                .slice(0, 5)
-                .map((repo) => (
-                  <div key={repo.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(repo.analysisStatus)}`}>
-                        {getStatusIcon(repo.analysisStatus)}
-                        {repo.analysisStatus}
-                      </div>
-                      <div>
-                        <p className="font-medium">{repo.owner}/{repo.repoName}</p>
-                        <p className="text-sm text-gray-600">{repo.description}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">
-                        {new Date(repo.lastAnalyzed).toLocaleDateString()}
-                      </p>
-                      {repo.enhancedData?.geminiInsights && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleViewAIInsights(repo)}
-                          className="mt-1"
-                        >
-                          View AI Insights
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="repositories" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {repositories.map((repo) => (
               <Card key={repo.id} className="p-6 hover:shadow-lg transition-shadow">
@@ -341,10 +322,13 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                   <span>{repo.language}</span>
                   <span>⭐ {repo.stars}</span>
                   <span>🍴 {repo.forks}</span>
+                </div>
+                <div className="text-xs text-gray-500 mb-4">
+                  Last Analyzed: {repo.lastAnalyzed ? new Date(repo.lastAnalyzed).toLocaleDateString() : 'N/A'}
                 </div>
 
                 <div className="flex gap-2">
@@ -365,6 +349,19 @@ export default function DashboardPage() {
                       AI Insights
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteRepository(repo.id)}
+                    disabled={deletingRepoId === repo.id}
+                    className="ml-auto"
+                  >
+                    {deletingRepoId === repo.id ? (
+                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                  </Button>
                 </div>
 
                 {repo.enhancedData?.geminiInsights && (

@@ -14,7 +14,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { repoUrl, options = {} } = await request.json()
+    let requestBody;
+    try {
+      requestBody = await request.json()
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      )
+    }
+
+    const { repoUrl, options = {} } = requestBody
     
     if (!repoUrl) {
       return NextResponse.json(
@@ -54,6 +64,27 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Enhanced analysis completed for ${owner}/${repoName}`)
     
+    // Sanitize data to remove null bytes and other problematic characters
+    const sanitizeData = (data: any): any => {
+      if (data === null || data === undefined) return null
+      if (typeof data === 'string') {
+        return data.replace(/\0/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      }
+      if (Array.isArray(data)) {
+        return data.map(sanitizeData)
+      }
+      if (typeof data === 'object') {
+        const sanitized: any = {}
+        for (const [key, value] of Object.entries(data)) {
+          sanitized[key] = sanitizeData(value)
+        }
+        return sanitized
+      }
+      return data
+    }
+    
+    const sanitizedData = sanitizeData(enhancedData)
+    
     // Store the enhanced data in our database
     const { prisma } = await import('@/lib/prisma')
     
@@ -73,7 +104,7 @@ export async function POST(request: NextRequest) {
         forks: enhancedData.metrics.forks_count,
         analysisStatus: 'completed',
         lastCommit: enhancedData.activity.commits[0] ? new Date(enhancedData.activity.commits[0].author.date) : null,
-        data: enhancedData as any, // Store the full enhanced data
+        data: sanitizedData as any, // Store the full enhanced data
         updatedAt: new Date()
       },
       create: {
@@ -88,7 +119,7 @@ export async function POST(request: NextRequest) {
         size: enhancedData.repository.size,
         analysisStatus: 'completed',
         lastCommit: enhancedData.activity.commits[0] ? new Date(enhancedData.activity.commits[0].author.date) : null,
-        data: enhancedData as any
+        data: sanitizedData as any
       }
     })
 

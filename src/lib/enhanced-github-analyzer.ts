@@ -1,5 +1,8 @@
 import { Octokit } from '@octokit/rest'
 import { geminiAnalyzer, type GeminiRepositoryInsights } from './gemini-analyzer'
+import { architectureAnalyzer, type ArchitectureData } from './architecture-analyzer'
+import { technologyAnalyzer, type TechnologyStack } from './technology-analyzer'
+import { scoringAnalyzer, type QualityScore } from './scoring-analyzer'
 
 export interface EnhancedRepositoryData {
   // Basic repository info
@@ -216,6 +219,15 @@ export interface EnhancedRepositoryData {
 
   // AI-powered insights from Gemini
   geminiInsights?: GeminiRepositoryInsights
+  
+  // Architecture analysis
+  architecture?: ArchitectureData
+  
+  // Technology stack analysis
+  technologyStack?: TechnologyStack
+  
+  // Quality scoring
+  qualityScores?: QualityScore
 }
 
 export class EnhancedGitHubAnalyzer {
@@ -289,7 +301,37 @@ export class EnhancedGitHubAnalyzer {
         quality
       }
 
-      // 9. Generate Gemini AI insights
+      // 9. Generate architecture analysis
+      console.log('🏗️ Analyzing repository architecture...')
+      try {
+        const architecture = architectureAnalyzer.analyzeArchitecture(enhancedData)
+        enhancedData.architecture = architecture
+        console.log(`✅ Architecture analysis complete: ${architecture.nodes.length} components, ${architecture.edges.length} connections`)
+      } catch (error) {
+        console.warn('Architecture analysis failed:', error)
+      }
+
+      // 10. Generate technology stack analysis
+      console.log('🔍 Analyzing technology stack...')
+      try {
+        const technologyStack = technologyAnalyzer.analyzeTechnologyStack(enhancedData)
+        enhancedData.technologyStack = technologyStack
+        console.log(`✅ Technology stack analysis complete: ${this.getTotalTechnologies(technologyStack)} technologies detected`)
+      } catch (error) {
+        console.warn('Technology stack analysis failed:', error)
+      }
+
+      // 11. Generate quality scores
+      console.log('📊 Analyzing quality scores...')
+      try {
+        const qualityScores = scoringAnalyzer.analyzeQualityScores(enhancedData)
+        enhancedData.qualityScores = qualityScores
+        console.log(`✅ Quality scoring complete: Overall score ${qualityScores.overall}/100`)
+      } catch (error) {
+        console.warn('Quality scoring failed:', error)
+      }
+
+      // 12. Generate Gemini AI insights
       if (includeGeminiAnalysis) {
         console.log('🤖 Generating AI-powered insights with Gemini...')
         try {
@@ -653,6 +695,7 @@ export class EnhancedGitHubAnalyzer {
     try {
       // Extract from package.json
       if (content.packageJson) {
+        console.log('📦 Extracting dependencies from package.json')
         const pkg = content.packageJson
         
         if (pkg.dependencies) {
@@ -660,7 +703,8 @@ export class EnhancedGitHubAnalyzer {
             dependencies.production.push({
               name,
               version: version as string,
-              type: 'dependency'
+              type: 'dependency',
+              source: 'package.json'
             })
           })
         }
@@ -670,7 +714,8 @@ export class EnhancedGitHubAnalyzer {
             dependencies.development.push({
               name,
               version: version as string,
-              type: 'devDependency'
+              type: 'devDependency',
+              source: 'package.json'
             })
           })
         }
@@ -680,19 +725,228 @@ export class EnhancedGitHubAnalyzer {
             dependencies.production.push({
               name,
               version: version as string,
-              type: 'peerDependency'
+              type: 'peerDependency',
+              source: 'package.json'
             })
           })
         }
       }
 
-      // TODO: Add support for other dependency files (requirements.txt, Gemfile, etc.)
+      // Extract from requirements.txt
+      const requirementsFile = content.files.find((f: any) => f.name === 'requirements.txt')
+      if (requirementsFile && requirementsFile.content) {
+        console.log('🐍 Extracting dependencies from requirements.txt')
+        this.extractPythonDependencies(requirementsFile.content, dependencies)
+      }
+
+      // Extract from Gemfile
+      const gemfile = content.files.find((f: any) => f.name === 'Gemfile')
+      if (gemfile && gemfile.content) {
+        console.log('💎 Extracting dependencies from Gemfile')
+        this.extractRubyDependencies(gemfile.content, dependencies)
+      }
+
+      // Extract from pom.xml
+      const pomFile = content.files.find((f: any) => f.name === 'pom.xml')
+      if (pomFile && pomFile.content) {
+        console.log('☕ Extracting dependencies from pom.xml')
+        this.extractMavenDependencies(pomFile.content, dependencies)
+      }
+
+      // Extract from build.gradle
+      const gradleFile = content.files.find((f: any) => f.name === 'build.gradle')
+      if (gradleFile && gradleFile.content) {
+        console.log('🔧 Extracting dependencies from build.gradle')
+        this.extractGradleDependencies(gradleFile.content, dependencies)
+      }
+
+      // Extract from Cargo.toml
+      const cargoFile = content.files.find((f: any) => f.name === 'Cargo.toml')
+      if (cargoFile && cargoFile.content) {
+        console.log('🦀 Extracting dependencies from Cargo.toml')
+        this.extractRustDependencies(cargoFile.content, dependencies)
+      }
+
+      // Extract from go.mod
+      const goModFile = content.files.find((f: any) => f.name === 'go.mod')
+      if (goModFile && goModFile.content) {
+        console.log('🐹 Extracting dependencies from go.mod')
+        this.extractGoDependencies(goModFile.content, dependencies)
+      }
+
+      // Extract from composer.json
+      const composerFile = content.files.find((f: any) => f.name === 'composer.json')
+      if (composerFile && composerFile.content) {
+        console.log('🐘 Extracting dependencies from composer.json')
+        this.extractComposerDependencies(composerFile.content, dependencies)
+      }
+
+      console.log(`✅ Extracted ${dependencies.production.length} production and ${dependencies.development.length} development dependencies`)
 
     } catch (error) {
       console.warn('Failed to extract dependencies:', error)
     }
 
     return dependencies
+  }
+
+  private extractPythonDependencies(content: string, dependencies: any) {
+    const lines = content.split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('-')) {
+        const match = trimmed.match(/^([a-zA-Z0-9_-]+)([>=<~!]+)?([0-9.]+)?/)
+        if (match) {
+          const name = match[1]
+          const version = match[3] || 'latest'
+          dependencies.production.push({
+            name,
+            version,
+            type: 'dependency',
+            source: 'requirements.txt'
+          })
+        }
+      }
+    }
+  }
+
+  private extractRubyDependencies(content: string, dependencies: any) {
+    const lines = content.split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('gem ')) {
+        const match = trimmed.match(/gem\s+['"]([^'"]+)['"](?:,\s*['"]([^'"]+)['"])?/)
+        if (match) {
+          const name = match[1]
+          const version = match[2] || 'latest'
+          dependencies.production.push({
+            name,
+            version,
+            type: 'dependency',
+            source: 'Gemfile'
+          })
+        }
+      }
+    }
+  }
+
+  private extractMavenDependencies(content: string, dependencies: any) {
+    // Simple XML parsing for Maven dependencies
+    const dependencyRegex = /<dependency>\s*<groupId>([^<]+)<\/groupId>\s*<artifactId>([^<]+)<\/artifactId>\s*(?:<version>([^<]+)<\/version>)?\s*<\/dependency>/g
+    let match
+    while ((match = dependencyRegex.exec(content)) !== null) {
+      const groupId = match[1]
+      const artifactId = match[2]
+      const version = match[3] || 'latest'
+      dependencies.production.push({
+        name: `${groupId}:${artifactId}`,
+        version,
+        type: 'dependency',
+        source: 'pom.xml'
+      })
+    }
+  }
+
+  private extractGradleDependencies(content: string, dependencies: any) {
+    const lines = content.split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed.includes('implementation') || trimmed.includes('compile')) {
+        const match = trimmed.match(/(?:implementation|compile)\s+['"]([^'"]+)['"]/)
+        if (match) {
+          const fullName = match[1]
+          const versionMatch = fullName.match(/^([^:]+):([^:]+):([^:]+)$/)
+          if (versionMatch) {
+            dependencies.production.push({
+              name: `${versionMatch[1]}:${versionMatch[2]}`,
+              version: versionMatch[3],
+              type: 'dependency',
+              source: 'build.gradle'
+            })
+          } else {
+            dependencies.production.push({
+              name: fullName,
+              version: 'latest',
+              type: 'dependency',
+              source: 'build.gradle'
+            })
+          }
+        }
+      }
+    }
+  }
+
+  private extractRustDependencies(content: string, dependencies: any) {
+    const lines = content.split('\n')
+    let inDependencies = false
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed === '[dependencies]') {
+        inDependencies = true
+        continue
+      }
+      if (trimmed.startsWith('[') && trimmed !== '[dependencies]') {
+        inDependencies = false
+        continue
+      }
+      if (inDependencies && trimmed.includes('=')) {
+        const match = trimmed.match(/^([a-zA-Z0-9_-]+)\s*=\s*['"]([^'"]+)['"]/)
+        if (match) {
+          dependencies.production.push({
+            name: match[1],
+            version: match[2],
+            type: 'dependency',
+            source: 'Cargo.toml'
+          })
+        }
+      }
+    }
+  }
+
+  private extractGoDependencies(content: string, dependencies: any) {
+    const lines = content.split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('require ')) {
+        const match = trimmed.match(/require\s+([^\s]+)\s+([^\s]+)/)
+        if (match) {
+          dependencies.production.push({
+            name: match[1],
+            version: match[2],
+            type: 'dependency',
+            source: 'go.mod'
+          })
+        }
+      }
+    }
+  }
+
+  private extractComposerDependencies(content: string, dependencies: any) {
+    try {
+      const composer = JSON.parse(content)
+      if (composer.require) {
+        Object.entries(composer.require).forEach(([name, version]) => {
+          dependencies.production.push({
+            name,
+            version: version as string,
+            type: 'dependency',
+            source: 'composer.json'
+          })
+        })
+      }
+      if (composer['require-dev']) {
+        Object.entries(composer['require-dev']).forEach(([name, version]) => {
+          dependencies.development.push({
+            name,
+            version: version as string,
+            type: 'devDependency',
+            source: 'composer.json'
+          })
+        })
+      }
+    } catch (error) {
+      console.warn('Failed to parse composer.json:', error)
+    }
   }
 
   private async fetchQualityMetrics(owner: string, repo: string) {
@@ -767,10 +1021,15 @@ export class EnhancedGitHubAnalyzer {
         }))
       ],
       readme: enhancedData.content.readme?.content,
-      packageJson: enhancedData.content.packageJson
+      packageJson: enhancedData.content.packageJson,
+      technologyStack: enhancedData.technologyStack
     }
 
     return await geminiAnalyzer.analyzeRepository(repoData)
+  }
+
+  private getTotalTechnologies(technologyStack: TechnologyStack): number {
+    return Object.values(technologyStack).reduce((total, category) => total + category.length, 0)
   }
 }
 
