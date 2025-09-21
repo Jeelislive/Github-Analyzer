@@ -85,6 +85,7 @@ export default function RepositoryDetailPage() {
 
   const [repository, setRepository] = useState<any>(null)
   const [components, setComponents] = useState<Component[]>([])
+  const [files, setFiles] = useState<FileData[]>([])
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null)
   const [architecture, setArchitecture] = useState<ArchitectureData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,10 +104,13 @@ export default function RepositoryDetailPage() {
 
   const fetchRepositoryDetails = async () => {
     try {
-      const response = await fetch(`/api/repos/${repoId}?include=analytics,documentation`)
+      const response = await fetch(`/api/repos/${repoId}?include=files,analytics,documentation`)
       if (response.ok) {
         const data = await response.json()
         setRepository(data)
+        if (Array.isArray(data.files)) {
+          setFiles(data.files as FileData[])
+        }
       }
     } catch (error) {
       console.error('Failed to fetch repository details:', error)
@@ -216,8 +220,18 @@ export default function RepositoryDetailPage() {
     return 'Very High'
   }
 
+  const getFileDifficulty = (file: FileData) => {
+    const c = file.complexity ?? 0
+    const loc = file.linesOfCode ?? (file.content ? file.content.split('\n').length : 0)
+    const score = c * 2 + Math.ceil(loc / 200)
+    if (score <= 5) return { label: 'Easy', color: 'bg-green-100 text-green-700' }
+    if (score <= 10) return { label: 'Medium', color: 'bg-yellow-100 text-yellow-700' }
+    if (score <= 20) return { label: 'Hard', color: 'bg-orange-100 text-orange-700' }
+    return { label: 'Very Hard', color: 'bg-red-100 text-red-700' }
+  }
+
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return <div className="w-full px-6 py-6">Loading...</div>
   }
 
   return (
@@ -250,12 +264,47 @@ export default function RepositoryDetailPage() {
 
       <Tabs defaultValue="components" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="components">Components</TabsTrigger>
+          <TabsTrigger value="components">Components & Files</TabsTrigger>
           <TabsTrigger value="architecture">Architecture</TabsTrigger>
           <TabsTrigger value="documentation">Documentation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="components" className="space-y-6">
+          {/* Important Files (Top 10) */}
+          <Card className="p-5">
+            <h3 className="text-lg font-semibold mb-4">Important Files (Top 10)</h3>
+            {files && files.length > 0 ? (
+              <div className="space-y-6">
+                {([...files]
+                  .sort((a,b)=> (b.complexity ?? 0) - (a.complexity ?? 0) || (b.linesOfCode ?? 0) - (a.linesOfCode ?? 0))
+                  .slice(0,10)
+                ).map((f) => {
+                  const diff = getFileDifficulty(f)
+                  return (
+                    <div key={f.id} className="border rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
+                        <div className="truncate">
+                          <div className="font-medium truncate" title={f.name}>{f.name}</div>
+                          <div className="text-xs text-gray-600 truncate" title={f.path}>{f.path}</div>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded ${diff.color}`}>{diff.label}</span>
+                      </div>
+                      <div className="p-0">
+                        {f.content ? (
+                          <pre className="bg-white p-4 text-sm overflow-auto max-h-[420px]"><code>{f.content}</code></pre>
+                        ) : (
+                          <div className="p-4 text-sm text-gray-600">Code content not available.</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">No files found for this analysis.</p>
+            )}
+          </Card>
+
           {/* Search and Filter */}
           <div className="flex gap-4 mb-6">
             <div className="flex-1 relative">
@@ -326,7 +375,13 @@ export default function RepositoryDetailPage() {
                     <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
                     <span className="text-sm truncate">Complexity: {component.complexity}</span>
                   </div>
-                  <ComponentCodeModal component={component}>
+                  <ComponentCodeModal
+                    component={component}
+                    repoId={repoId}
+                    repoOwner={repository?.owner}
+                    repoName={repository?.repoName}
+                    branch={repository?.defaultBranch || 'main'}
+                  >
                     <Button size="sm" variant="outline" className="h-8 px-3">
                       <Eye className="h-4 w-4 mr-1" />
                       Code
@@ -339,68 +394,17 @@ export default function RepositoryDetailPage() {
         </TabsContent>
 
         <TabsContent value="architecture" className="space-y-6">
-          {architecture && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="w-5 h-5 text-blue-500" />
-                    <span className="font-medium">Total Files</span>
-                  </div>
-                  <p className="text-2xl font-bold">{architecture.stats.totalNodes}</p>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <GitBranch className="w-5 h-5 text-green-500" />
-                    <span className="font-medium">Connections</span>
-                  </div>
-                  <p className="text-2xl font-bold">{architecture.stats.totalEdges}</p>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Code className="w-5 h-5 text-purple-500" />
-                    <span className="font-medium">Avg Connections</span>
-                  </div>
-                  <p className="text-2xl font-bold">
-                    {(architecture.stats.averageConnections || 0).toFixed(1)}
-                  </p>
-                </Card>
-              </div>
-
-              {/* Interactive Mermaid Architecture Diagram */}
-              <MermaidArchitectureDiagram 
-                data={architecture} 
-                onNodeClick={handleNodeClick}
-              />
-            </div>
-          )}
+          <Card className="p-12 text-center">
+            <h3 className="text-2xl font-semibold mb-2">Architecture</h3>
+            <p className="text-gray-600">Coming soon</p>
+          </Card>
         </TabsContent>
 
         <TabsContent value="documentation" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-xl font-semibold mb-4">Generated Documentation</h3>
-            {repository?.documentation?.readme ? (
-              <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap">{repository.documentation.readme}</pre>
-              </div>
-            ) : (
-              <p className="text-muted-foreground">
-                No documentation available. The system can generate API docs, usage examples, and architectural guides.
-              </p>
-            )}
+          <Card className="p-12 text-center">
+            <h3 className="text-2xl font-semibold mb-2">Documentation</h3>
+            <p className="text-gray-600">Coming soon</p>
           </Card>
-
-          {repository?.documentation?.apiDocs && (
-            <Card className="p-6">
-              <h3 className="text-xl font-semibold mb-4">API Documentation</h3>
-              <div className="space-y-4">
-                {/* API docs would be rendered here */}
-                <p className="text-muted-foreground">
-                  Generated API documentation based on component analysis would be displayed here.
-                </p>
-              </div>
-            </Card>
-          )}
         </TabsContent>
 
       </Tabs>
@@ -524,3 +528,4 @@ export default function RepositoryDetailPage() {
     </div>
   )
 }
+    

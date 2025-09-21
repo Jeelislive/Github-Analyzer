@@ -4,7 +4,6 @@ import HowItWorks from '@/components/sections/how-it-works'
 import Testimonials from '@/components/sections/testimonials'
 import Pricing from '@/components/sections/pricing'
 import DocumentationPreview from '@/components/sections/documentation-preview'
-import Footer from '@/components/footer'
 
 export default function Home() {
   return (
@@ -17,7 +16,6 @@ export default function Home() {
         <Pricing />
         {/* <DocumentationPreview /> */}
       </div>
-      <Footer />
     </div>
   )
 }

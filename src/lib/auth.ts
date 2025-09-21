@@ -2,9 +2,6 @@ import { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "./prisma"
 import GitHubProvider from "next-auth/providers/github"
-import GoogleProvider from "next-auth/providers/google"
-import CredentialsProvider from "next-auth/providers/credentials"
-import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -12,48 +9,10 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
-    }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
-          }
-        })
-
-        if (!user || !user.password) {
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        }
-      }
+      // Request user email scope explicitly to guarantee we receive emails
+      authorization: { params: { scope: 'read:user user:email' } },
+      // When migrating from credentials/email auth to GitHub-only, allow linking by matching email
+      allowDangerousEmailAccountLinking: true,
     })
   ],
   session: {
@@ -65,6 +24,13 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.userId = user.id
       }
+      // Persist GitHub access token when available, otherwise keep existing one
+      if (account?.access_token) {
+        (token as any).accessToken = account.access_token
+      } else if ((token as any).accessToken) {
+        // carry forward existing token across subsequent requests
+        (token as any).accessToken = (token as any).accessToken
+      }
       return token
     },
     async session({ session, token }) {
@@ -72,6 +38,8 @@ export const authOptions: NextAuthOptions = {
       if (token.userId && session.user) {
         session.user.id = token.userId as string
       }
+      // Expose access token to client
+      ;(session as any).accessToken = (token as any).accessToken
       return session
     },
     async redirect({ url, baseUrl }) {

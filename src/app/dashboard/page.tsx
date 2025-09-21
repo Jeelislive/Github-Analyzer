@@ -5,12 +5,13 @@ import { useSession } from 'next-auth/react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import AIInsightsDashboard from '@/components/ui/ai-insights-dashboard'
-import CollaborationNetwork from '@/components/ui/collaboration-network'
-import EvolutionTimeline from '@/components/ui/evolution-timeline'
-import { GitBranch, Plus, Search, Sparkles, Brain, Zap, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
+import CommunityPanel from '@/components/community/CommunityPanel'
+import { Brain } from 'lucide-react'
+import ContributionHeatmap, { type HeatmapDay } from '@/components/github/ContributionHeatmap'
+import { Calendar, Flame, GitCommit, GitPullRequest, MessageSquare, Sparkles, Star, GitFork, FolderGit2, Search } from 'lucide-react'
+import Sidebar from '@/components/dashboard/Sidebar'
+import RightProfilePanel from '@/components/dashboard/RightProfilePanel'
+import MiniKPI from '@/components/charts/MiniKPI'
 
 interface Repository {
   id: string
@@ -27,396 +28,288 @@ interface Repository {
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [enhancedAnalyzing, setEnhancedAnalyzing] = useState(false)
-  const [repoUrl, setRepoUrl] = useState('')
-  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null)
-  const [activeTab, setActiveTab] = useState('repositories') // Default to repositories
-  const [deletingRepoId, setDeletingRepoId] = useState<string | null>(null)
+  const [contriLoading, setContriLoading] = useState(true)
+  const [contriError, setContriError] = useState<string | null>(null)
+  const [contriData, setContriData] = useState<null | {
+    user: { login: string; name?: string | null }
+    range: { from: string; to: string }
+    totals: {
+      totalContributions: number
+      totalCommits: number
+      totalIssues: number
+      totalPRs: number
+      totalReviews: number
+      restricted: number
+      startedAt: string
+      endedAt: string
+      years: number[]
+    }
+    streaks: { currentStreak: number; longestStreak: number }
+    calendar: { total: number; days: HeatmapDay[] }
+  }>(null)
+
+  // PRs
+  const [prs, setPrs] = useState<null | { totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }, recent: any[] }>(null)
+  const [prsErr, setPrsErr] = useState<string | null>(null)
+  // Issues
+  const [issues, setIssues] = useState<null | { totals: { total: number; open: number; closed: number; avgFirstResponseMs: number | null }, recent: any[] }>(null)
+  const [issuesErr, setIssuesErr] = useState<string | null>(null)
+  // Repos
+  const [repos, setRepos] = useState<null | { totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }, topByStars: any[] }>(null)
+  const [reposErr, setReposErr] = useState<string | null>(null)
 
   useEffect(() => {
     if (session?.user) {
-      fetchRepositories()
+      // Minimal loading to avoid flash
+      setLoading(false)
     }
   }, [session])
 
   useEffect(() => {
-    if (repositories.length > 0 && !selectedRepo) {
-      const repoWithInsights = repositories.find(r => r.enhancedData?.geminiInsights)
-      if (repoWithInsights) {
-        setSelectedRepo(repoWithInsights)
-      }
-    }
-  }, [repositories, selectedRepo])
-
-  const fetchRepositories = async () => {
-    try {
-      const response = await fetch('/api/repos')
-      if (response.ok) {
-        const data = await response.json()
-        setRepositories(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch repositories:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const analyzeRepository = async (enhanced = false) => {
-    if (!repoUrl) return
-
-    const setLoadingState = enhanced ? setEnhancedAnalyzing : setAnalyzing
-    setLoadingState(true)
-
-    try {
-      const endpoint = enhanced ? '/api/analyze/enhanced' : '/api/analyze'
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          repoUrl,
-          options: enhanced ? {
-            includeFileContent: true,
-            includeCommitHistory: true,
-            includeGeminiAnalysis: true,
-            maxFiles: 100,
-            maxCommits: 200
-          } : {}
+    let cancelled = false
+    if (session?.user) {
+      setContriLoading(true)
+      fetch('/api/github/contributions?range=365d')
+        .then(async (res) => {
+          if (!res.ok) throw new Error(await res.text())
+          return res.json()
         })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setRepoUrl('')
-        
-        // Refresh the repository list
-        await fetchRepositories()
-        
-        if (enhanced && data.enhancedData) {
-          // Wait a bit for the UI to update, then select the new repository
-          setTimeout(async () => {
-            await fetchRepositories() // Ensure we have the latest data
-            const newRepo = repositories.find(r => r.id === data.repositoryId)
-            if (newRepo) {
-              setSelectedRepo(newRepo)
-            }
-          }, 1500)
-        }
-        
-        // Show success message
-        alert(`Repository analyzed successfully! ${enhanced ? 'AI Insights tab will be enabled shortly.' : ''}`)
-      } else {
-        const error = await response.json()
-        alert(`Analysis failed: ${error.details || error.error}`)
-      }
-    } catch (error) {
-      console.error('Analysis failed:', error)
-      alert('Analysis failed. Please try again.')
-    } finally {
-      setLoadingState(false)
+        .then((json) => {
+          if (!cancelled) setContriData(json)
+        })
+        .catch((e) => {
+          if (!cancelled) setContriError(e?.message || 'Failed to load contributions')
+        })
+        .finally(() => {
+          if (!cancelled) setContriLoading(false)
+        })
+      // PRs
+      fetch('/api/github/prs')
+        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
+        .then((j) => !cancelled && setPrs(j))
+        .catch((e) => !cancelled && setPrsErr(e?.message || 'Failed to load PRs'))
+      // Issues
+      fetch('/api/github/issues')
+        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
+        .then((j) => !cancelled && setIssues(j))
+        .catch((e) => !cancelled && setIssuesErr(e?.message || 'Failed to load issues'))
+      // Repos
+      fetch('/api/github/repos')
+        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
+        .then((j) => !cancelled && setRepos(j))
+        .catch((e) => !cancelled && setReposErr(e?.message || 'Failed to load repos'))
     }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800'
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'failed': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+    return () => {
+      cancelled = true
     }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="w-4 h-4" />
-      case 'pending': return <AlertCircle className="w-4 h-4" />
-      case 'failed': return <AlertCircle className="w-4 h-4" />
-      default: return <AlertCircle className="w-4 h-4" />
-    }
-  }
-
-  // Function to handle AI Insights button click
-  const handleViewAIInsights = (repo: Repository) => {
-    console.log('Viewing AI insights for:', repo.owner + '/' + repo.repoName)
-    console.log('Has Gemini insights:', !!repo.enhancedData?.geminiInsights)
-    
-    setSelectedRepo(repo)
-    setActiveTab('insights') // Switch to insights tab
-  }
-
-  // Function to handle repository deletion
-  const handleDeleteRepository = async (repoId: string) => {
-    if (!confirm('Are you sure you want to delete this repository analysis? This action cannot be undone.')) {
-      return
-    }
-
-    setDeletingRepoId(repoId)
-    try {
-      const response = await fetch(`/api/repos/${repoId}/delete`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        // Remove the repository from the list
-        setRepositories(repos => repos.filter(repo => repo.id !== repoId))
-        console.log('Repository analysis deleted successfully')
-      } else {
-        const error = await response.json()
-        console.error('Delete failed:', error)
-        alert('Failed to delete repository analysis. Please try again.')
-      }
-    } catch (error) {
-      console.error('Delete error:', error)
-      alert('An error occurred while deleting the repository analysis.')
-    } finally {
-      setDeletingRepoId(null)
-    }
-  }
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
-  }
+  }, [session])
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Repository Dashboard</h1>
-          <p className="text-gray-600">Analyze and visualize your GitHub repositories with AI-powered insights</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-blue-50 text-blue-700">
-            <Brain className="w-3 h-3 mr-1" />
-            Powered by Gemini AI
-          </Badge>
-        </div>
-      </div>
+    <div className="w-full px-6 py-6">
+      <div className="flex gap-6">
+        {/* Left Sidebar */}
+        <Sidebar />
 
-      {/* Analysis Input Section */}
-      <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-blue-600" />
-          Analyze New Repository
-        </h2>
-        
-        <div className="space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Enter GitHub repository URL (e.g., https://github.com/owner/repo)"
-                value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
-                className="pl-10"
-              />
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600">Welcome back! Explore your GitHub impact.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2 px-3 py-2 border rounded-md text-gray-500">
+                <Search className="w-4 h-4" />
+                <input className="outline-none text-sm w-56" placeholder="Search…" />
+              </div>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                <Brain className="w-3 h-3 mr-1" /> Powered by Gemini AI
+              </Badge>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <Button 
-              onClick={() => analyzeRepository(true)}
-              disabled={!repoUrl || enhancedAnalyzing}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          {/* Quick Actions */}
+          <div className="mb-6 flex items-center gap-3 flex-wrap">
+            <Button onClick={() => window.open('/analyzer', '_blank')} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+              Open Repo Analyzer
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const el = document.getElementById('community')
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                else window.location.hash = 'community'
+              }}
             >
-              <Sparkles className="w-4 h-4" />
-              {enhancedAnalyzing ? 'Analyzing...' : 'Analyze Repository'}
+              Community
             </Button>
           </div>
 
-          <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
-            <p><strong>Comprehensive Analysis:</strong> Runs the full enhanced analysis powered by Gemini AI, including code quality assessment, architecture insights, team collaboration patterns, and actionable recommendations.</p>
-          </div>
-        </div>
-      </Card>
+          {/* Show loading placeholder if session still initializing */}
+          {loading && (
+            <div className="mb-8 text-gray-600">Loading…</div>
+          )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="repositories">Repositories</TabsTrigger>
-          <TabsTrigger 
-            value="insights" 
-            disabled={!selectedRepo?.enhancedData?.geminiInsights}
-            className={!selectedRepo?.enhancedData?.geminiInsights ? "opacity-50" : ""}
-          >
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4" />
-              AI Insights
-              {!selectedRepo?.enhancedData?.geminiInsights && (
-                <span className="text-xs bg-orange-100 text-orange-700 px-1 rounded">Requires Enhanced Analysis</span>
-              )}
-            </div>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="visualizations" 
-            disabled={!selectedRepo?.enhancedData?.geminiInsights}
-            className={!selectedRepo?.enhancedData?.geminiInsights ? "opacity-50" : ""}
-          >
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              Visualizations
-              {!selectedRepo?.enhancedData?.geminiInsights && (
-                <span className="text-xs bg-orange-100 text-orange-700 px-1 rounded">Requires Enhanced Analysis</span>
-              )}
-            </div>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="repositories" className="space-y-6">
-          {/* Summary Metrics moved from Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <GitBranch className="w-5 h-5 text-blue-500" />
-                <span className="font-medium">Total Repositories</span>
-              </div>
-              <p className="text-2xl font-bold">{repositories.length}</p>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="font-medium">Analyzed</span>
-              </div>
-              <p className="text-2xl font-bold">
-                {repositories.filter(r => r.analysisStatus === 'completed').length}
-              </p>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Brain className="w-5 h-5 text-purple-500" />
-                <span className="font-medium">AI Enhanced</span>
-              </div>
-              <p className="text-2xl font-bold">
-                {repositories.filter(r => r.enhancedData?.geminiInsights).length}
-              </p>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="font-medium">Total Stars</span>
-              </div>
-              <p className="text-2xl font-bold">
-                {repositories.reduce((sum, repo) => sum + (repo.stars || 0), 0)}
-              </p>
-            </Card>
+          {/* KPI Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+            {/* Contributions sparkline (last 30d) */}
+            <MiniKPI
+              title="Contributions (30d)"
+              value={(() => {
+                if (!contriData?.calendar?.days) return '—'
+                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
+                const last30 = days.slice(-30)
+                return last30.reduce((s,d)=>s+d.contributionCount,0)
+              })()}
+              delta={(() => {
+                if (!contriData?.calendar?.days) return undefined
+                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
+                const last30 = days.slice(-30)
+                const prev30 = days.slice(-60,-30)
+                const a = last30.reduce((s,d)=>s+d.contributionCount,0)
+                const b = prev30.reduce((s,d)=>s+d.contributionCount,0)
+                if (b === 0) return { value: 0, positive: true }
+                const pct = Math.round(((a-b)/b)*100)
+                return { value: Math.abs(pct), positive: pct >= 0 }
+              })()}
+              series={(() => {
+                if (!contriData?.calendar?.days) return []
+                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
+                const last30 = days.slice(-30).map(d=>d.contributionCount)
+                return last30
+              })()}
+              stroke="#7c3aed"
+            />
+
+            {/* PRs sparkline (approx from recent updates) */}
+            <MiniKPI
+              title="PRs updated (sample)"
+              value={prs ? prs.totals.total : '—'}
+              delta={prs ? { value: Math.min(99, Math.round((prs.totals.merged / Math.max(1, prs.totals.total))*100)), positive: true } : undefined}
+              series={(() => {
+                if (!prs?.recent) return []
+                const counts: Record<string, number> = {}
+                prs.recent.forEach((p:any)=>{ const d = new Date(p.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
+                const keys = Object.keys(counts).sort()
+                return keys.slice(-30).map(k=>counts[k])
+              })()}
+              stroke="#10b981"
+            />
+
+            {/* Issues sparkline (approx from recent updates) */}
+            <MiniKPI
+              title="Issues updated (sample)"
+              value={issues ? issues.totals.total : '—'}
+              delta={issues ? { value: Math.min(99, Math.round((issues.totals.closed / Math.max(1, issues.totals.total))*100)), positive: true } : undefined}
+              series={(() => {
+                if (!issues?.recent) return []
+                const counts: Record<string, number> = {}
+                issues.recent.forEach((i:any)=>{ const d = new Date(i.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
+                const keys = Object.keys(counts).sort()
+                return keys.slice(-30).map(k=>counts[k])
+              })()}
+              stroke="#6366f1"
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {repositories.map((repo) => (
-              <Card key={repo.id} className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg">{repo.owner}/{repo.repoName}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{repo.description}</p>
-                  </div>
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(repo.analysisStatus)}`}>
-                    {getStatusIcon(repo.analysisStatus)}
-                    {repo.analysisStatus}
-                  </div>
+          {/* Contributions Section */}
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-semibold">Your Contributions</h2>
+                <p className="text-gray-600">Live GitHub activity powered by GraphQL</p>
+              </div>
+              <Badge variant="outline" className="bg-green-50 text-green-700">
+                <Sparkles className="w-3 h-3 mr-1" /> Real-time
+              </Badge>
+            </div>
+
+            {contriLoading ? (
+              <div className="p-6 text-gray-600">Loading contributions…</div>
+            ) : contriError ? (
+              <div className="p-6 text-red-600">{contriError}</div>
+            ) : contriData ? (
+              <>
+                {/* KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Sparkles className="w-5 h-5" /></div>
+                    <div>
+                      <div className="text-sm text-gray-500">Total Contributions</div>
+                      <div className="text-xl font-semibold">{contriData.totals.totalContributions.toLocaleString()}</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitCommit className="w-5 h-5" /></div>
+                    <div>
+                      <div className="text-sm text-gray-500">Commits</div>
+                      <div className="text-xl font-semibold">{contriData.totals.totalCommits.toLocaleString()}</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitPullRequest className="w-5 h-5" /></div>
+                    <div>
+                      <div className="text-sm text-gray-500">Pull Requests</div>
+                      <div className="text-xl font-semibold">{contriData.totals.totalPRs.toLocaleString()}</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><MessageSquare className="w-5 h-5" /></div>
+                    <div>
+                      <div className="text-sm text-gray-500">Issues</div>
+                      <div className="text-xl font-semibold">{contriData.totals.totalIssues.toLocaleString()}</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Calendar className="w-5 h-5" /></div>
+                    <div>
+                      <div className="text-sm text-gray-500">Reviews</div>
+                      <div className="text-xl font-semibold">{contriData.totals.totalReviews.toLocaleString()}</div>
+                    </div>
+                  </Card>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                  <span>{repo.language}</span>
-                  <span>⭐ {repo.stars}</span>
-                  <span>🍴 {repo.forks}</span>
-                </div>
-                <div className="text-xs text-gray-500 mb-4">
-                  Last Analyzed: {repo.lastAnalyzed ? new Date(repo.lastAnalyzed).toLocaleDateString() : 'N/A'}
-                </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => window.open(`/repos/${repo.id}`, '_blank')}
-                  >
-                    View Details
-                  </Button>
-                  {repo.enhancedData?.geminiInsights && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleViewAIInsights(repo)}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    >
-                      <Brain className="w-3 h-3 mr-1" />
-                      AI Insights
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteRepository(repo.id)}
-                    disabled={deletingRepoId === repo.id}
-                    className="ml-auto"
-                  >
-                    {deletingRepoId === repo.id ? (
-                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                  </Button>
+                {/* Streaks */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <Card className="p-4">
+                    <div className="text-sm text-gray-500 mb-1">Current Streak</div>
+                    <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> {contriData.streaks.currentStreak} days</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-sm text-gray-500 mb-1">Longest Streak</div>
+                    <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-red-500" /> {contriData.streaks.longestStreak} days</div>
+                  </Card>
                 </div>
 
-                {repo.enhancedData?.geminiInsights && (
-                  <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-blue-700 font-medium">AI Quality Score</span>
-                      <span className="text-blue-800 font-bold">
-                        {repo.enhancedData.geminiInsights.codeQuality.overallScore}/100
-                      </span>
+                {/* Heatmap */}
+                <Card className="p-4 mb-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="text-sm text-gray-500">Contribution Calendar</div>
+                      <div className="text-lg font-semibold">{new Date(contriData.range.from).toLocaleDateString()} - {new Date(contriData.range.to).toLocaleDateString()}</div>
                     </div>
                   </div>
-                )}
-              </Card>
-            ))}
+                  <ContributionHeatmap days={contriData.calendar.days} />
+                </Card>
+              </>
+            ) : null}
           </div>
-        </TabsContent>
 
-        <TabsContent value="insights" className="space-y-6">
-          {selectedRepo?.enhancedData?.geminiInsights ? (
-            <AIInsightsDashboard insights={selectedRepo.enhancedData.geminiInsights} />
-          ) : (
-            <Card className="p-12 text-center">
-              <Brain className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold mb-2">No AI Insights Available</h3>
-              <p className="text-gray-600 mb-4">
-                Select a repository with enhanced AI analysis to view detailed insights.
-              </p>
-              <Button onClick={() => setSelectedRepo(repositories.find(r => r.enhancedData?.geminiInsights) || null)}>
-                Find AI-Analyzed Repository
-              </Button>
-            </Card>
-          )}
-        </TabsContent>
+          {/* PRs & Issues & Repos summaries — removed per request */}
 
-        <TabsContent value="visualizations" className="space-y-6">
-          {selectedRepo?.enhancedData?.geminiInsights?.visualizations ? (
-            <div className="space-y-6">
-              <EvolutionTimeline 
-                data={selectedRepo.enhancedData.geminiInsights.visualizations.evolutionTimeline} 
-              />
-              <CollaborationNetwork 
-                data={selectedRepo.enhancedData.geminiInsights.visualizations.collaborationNetwork} 
-              />
-            </div>
-          ) : (
-            <Card className="p-12 text-center">
-              <Zap className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold mb-2">No Visualizations Available</h3>
-              <p className="text-gray-600">
-                Enhanced AI analysis is required to generate interactive visualizations.
-              </p>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+          {/* Community section */}
+          <div id="community">
+            <CommunityPanel />
+          </div>
+        </div>
+
+        {/* Right Profile */}
+        <div className="hidden xl:block w-80 shrink-0">
+          <RightProfilePanel />
+        </div>
+      </div>
     </div>
   )
 }

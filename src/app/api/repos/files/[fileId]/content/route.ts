@@ -4,10 +4,6 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Octokit } from "@octokit/rest"
 
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN
-})
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
@@ -23,6 +19,9 @@ export async function GET(
     }
 
     const { fileId } = await params
+    const { searchParams } = new URL(request.url)
+    const qsPath = searchParams.get('path') || undefined
+    const qsRepoId = searchParams.get('repoId') || undefined
 
     // Get the component/file details
     const component = await prisma.repoComponent.findUnique({
@@ -33,6 +32,40 @@ export async function GET(
     })
 
     if (!component) {
+      // Try fallback: maybe the fileId refers to RepoFile
+      const file = await prisma.repoFile.findUnique({ where: { id: fileId } })
+      if (file) {
+        return NextResponse.json({
+          content: file.content || '',
+          startLine: 1,
+          endLine: file.linesOfCode || (file.content ? file.content.split('\n').length : 1),
+          totalLines: file.linesOfCode || (file.content ? file.content.split('\n').length : 1),
+        })
+      }
+      // Try querystring path+repoId
+      if (qsPath && qsRepoId) {
+        const repo = await prisma.analyzedRepo.findUnique({ where: { id: qsRepoId } })
+        if (!repo) {
+          return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+        }
+        const dbFile = await prisma.repoFile.findFirst({ where: { repoId: qsRepoId, path: qsPath } })
+        if (dbFile?.content) {
+          return NextResponse.json({
+            content: dbFile.content,
+            startLine: 1,
+            endLine: dbFile.linesOfCode || dbFile.content.split('\n').length,
+            totalLines: dbFile.linesOfCode || dbFile.content.split('\n').length,
+          })
+        }
+        // As a last resort, fetch from GitHub
+        const accessToken: string | undefined = (session as any)?.accessToken
+        const octokit = new Octokit({ auth: accessToken || process.env.GITHUB_TOKEN })
+        const { data: fileData } = await octokit.repos.getContent({ owner: repo.owner, repo: repo.repoName, path: qsPath })
+        if ('content' in fileData) {
+          const content = Buffer.from((fileData as any).content as string, 'base64').toString('utf-8')
+          return NextResponse.json({ content, startLine: 1, endLine: content.split('\n').length, totalLines: content.split('\n').length })
+        }
+      }
       return NextResponse.json(
         { error: "Component not found" },
         { status: 404 }
@@ -48,6 +81,9 @@ export async function GET(
     }
 
     try {
+      // Prefer the user's OAuth access token to avoid missing permissions
+      const accessToken: string | undefined = (session as any)?.accessToken
+      const octokit = new Octokit({ auth: accessToken || process.env.GITHUB_TOKEN })
       // Fetch the file content from GitHub
       const { data: fileData } = await octokit.repos.getContent({
         owner: component.repo.owner,
@@ -56,34 +92,50 @@ export async function GET(
       })
 
       if ('content' in fileData) {
-        const content = Buffer.from(fileData.content, 'base64').toString('utf-8')
+        const content = Buffer.from(fileData.content as string, 'base64').toString('utf-8')
         
-        // Extract the specific lines for this component
+        // Extract the specific lines for this component (with safe defaults)
         const lines = content.split('\n')
-        const componentLines = lines.slice(
-          Math.max(0, component.startLine - 1), 
-          component.endLine
-        )
+        const start = Math.max(0, (component.startLine ?? 1) - 1)
+        const end = component.endLine ?? lines.length
+        const componentLines = lines.slice(start, end)
         
         return NextResponse.json({
-          content: componentLines.join('\n'),
-          fullContent: content,
-          startLine: component.startLine,
-          endLine: component.endLine,
+          content: content, // return full file content as primary
+          componentSnippet: componentLines.join('\n'),
+          startLine: component.startLine ?? 1,
+          endLine: component.endLine ?? lines.length,
           totalLines: lines.length
         })
       } else {
+        // Fallback to RepoFile content stored in DB
+        const dbFile = await prisma.repoFile.findFirst({ where: { repoId: component.repoId, path: component.path } })
+        if (dbFile?.content) {
+          return NextResponse.json({
+            content: dbFile.content,
+            startLine: 1,
+            endLine: dbFile.linesOfCode || dbFile.content.split('\n').length,
+            totalLines: dbFile.linesOfCode || dbFile.content.split('\n').length,
+          })
+        }
         return NextResponse.json(
-          { error: "File is not a regular file" },
+          { error: "File is not a regular file or content unavailable" },
           { status: 400 }
         )
       }
     } catch (error) {
       console.error('Failed to fetch file content from GitHub:', error)
-      return NextResponse.json(
-        { error: "Failed to fetch file content" },
-        { status: 500 }
-      )
+      // Fallback to RepoFile content stored in DB on API error
+      const dbFile = await prisma.repoFile.findFirst({ where: { repoId: component.repoId, path: component.path } })
+      if (dbFile?.content) {
+        return NextResponse.json({
+          content: dbFile.content,
+          startLine: 1,
+          endLine: dbFile.linesOfCode || dbFile.content.split('\n').length,
+          totalLines: dbFile.linesOfCode || dbFile.content.split('\n').length,
+        })
+      }
+      return NextResponse.json({ error: "Failed to fetch file content" }, { status: 500 })
     }
 
   } catch (error) {

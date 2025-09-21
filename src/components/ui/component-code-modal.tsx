@@ -19,9 +19,14 @@ interface ComponentCodeModalProps {
     complexity: number
   }
   children: React.ReactNode
+  repoId?: string
+  repoOwner?: string
+  repoName?: string
+  branch?: string
 }
 
-export default function ComponentCodeModal({ component, children }: ComponentCodeModalProps) {
+export default function ComponentCodeModal({ component, children, repoId, repoOwner, repoName, branch }: ComponentCodeModalProps) {
+  const [open, setOpen] = useState(false)
   const [code, setCode] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -29,7 +34,8 @@ export default function ComponentCodeModal({ component, children }: ComponentCod
   const fetchComponentCode = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/repos/files/${component.id}/content`)
+      const url = `/api/repos/files/${component.id}/content${repoId ? `?repoId=${encodeURIComponent(repoId)}&path=${encodeURIComponent(component.path)}` : ''}`
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         setCode(data.content || 'Code not available')
@@ -43,6 +49,14 @@ export default function ComponentCodeModal({ component, children }: ComponentCod
       setLoading(false)
     }
   }
+
+  // Auto-fetch when dialog opens
+  useEffect(() => {
+    if (open && !code && !loading) {
+      fetchComponentCode()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const copyToClipboard = async () => {
     try {
@@ -70,11 +84,11 @@ export default function ComponentCodeModal({ component, children }: ComponentCod
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -100,14 +114,14 @@ export default function ComponentCodeModal({ component, children }: ComponentCod
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           {component.description && (
             <div className="mb-4 p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">{component.description}</p>
             </div>
           )}
 
-          <div className="flex-1 overflow-hidden border rounded-lg">
+          <div className="flex-1 min-h-0 border rounded-lg flex flex-col">
             <div className="flex items-center justify-between p-3 border-b bg-muted/50">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Source Code</span>
@@ -128,25 +142,28 @@ export default function ComponentCodeModal({ component, children }: ComponentCod
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`https://github.com`, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  View on GitHub
-                </Button>
+                {repoOwner && repoName ? (
+                  <a
+                    href={`https://github.com/${repoOwner}/${repoName}/blob/${branch || 'main'}/${component.path}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm hover:bg-accent"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View on GitHub
+                  </a>
+                ) : null}
               </div>
             </div>
 
-            <div className="h-full overflow-auto">
+            <div className="flex-1 min-h-0 overflow-auto">
               {loading ? (
                 <div className="flex items-center justify-center h-32">
                   <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
                 </div>
               ) : (
-                <pre className="p-4 text-sm font-mono whitespace-pre-wrap overflow-auto h-full">
-                  {code || 'Click to load code...'}
+                <pre className="p-4 text-sm font-mono whitespace-pre overflow-auto">
+                  {code || 'Code not available'}
                 </pre>
               )}
             </div>
