@@ -31,12 +31,16 @@ export default function AnalyticsPage() {
     async function load() {
       try {
         setLoading(true)
+        const okJson = async (res: Response) => {
+          if (!res.ok) throw new Error(await res.text())
+          return res.json()
+        }
         const [c, p, i, r, a] = await Promise.all([
-          fetch('/api/github/contributions?range=180d').then((res) => res.json()),
-          fetch('/api/github/prs').then((res) => res.json()),
-          fetch('/api/github/issues').then((res) => res.json()),
-          fetch('/api/github/repos').then((res) => res.json()),
-          fetch('/api/github/activity?range=180d').then((res) => res.json()),
+          fetch('/api/github/contributions?range=180d').then(okJson),
+          fetch('/api/github/prs').then(okJson),
+          fetch('/api/github/issues').then(okJson),
+          fetch('/api/github/repos').then(okJson),
+          fetch('/api/github/activity?range=180d').then(okJson),
         ])
         if (!cancelled) {
           setContrib(c)
@@ -63,8 +67,16 @@ export default function AnalyticsPage() {
   }, [activity])
 
   // Gauges
-  const mergeRate = useMemo(() => (prs ? Math.min(1, (prs.totals.merged || 0) / Math.max(1, prs.totals.total)) : 0), [prs])
-  const closeRate = useMemo(() => (issues ? Math.min(1, (issues.totals.closed || 0) / Math.max(1, issues.totals.total)) : 0), [issues])
+  const mergeRate = useMemo(() => {
+    const merged = prs?.totals?.merged ?? 0
+    const total = prs?.totals?.total ?? 0
+    return Math.min(1, merged / Math.max(1, total))
+  }, [prs])
+  const closeRate = useMemo(() => {
+    const closed = issues?.totals?.closed ?? 0
+    const total = issues?.totals?.total ?? 0
+    return Math.min(1, closed / Math.max(1, total))
+  }, [issues])
 
   // Weekday bars from contributions
   const weekdayBars = useMemo(() => {

@@ -13,9 +13,9 @@ DATABASE_URL="postgresql://username:password@localhost:5432/github_analyzer"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-here"
 
-# GitHub OAuth
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
+# GitHub OAuth (Note: uses GITHUB_ID and GITHUB_SECRET as in src/lib/auth.ts)
+GITHUB_ID="your-github-client-id"
+GITHUB_SECRET="your-github-client-secret"
 
 # Gemini AI (Optional - will use fallback data if not provided)
 GEMINI_API_KEY="your-gemini-api-key-here"
@@ -34,7 +34,7 @@ GEMINI_API_KEY="your-gemini-api-key-here"
    - **Application name**: GitHub Analyzer
    - **Homepage URL**: `http://localhost:3000`
    - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
-3. Copy Client ID and Client Secret to `.env.local`
+3. Copy Client ID and Client Secret to `.env.local` as `GITHUB_ID` and `GITHUB_SECRET`
 
 ### 3. **Database Setup**
 Make sure your PostgreSQL database is running and accessible.

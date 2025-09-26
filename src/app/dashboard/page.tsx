@@ -49,6 +49,10 @@ export default function DashboardPage() {
     calendar: { total: number; days: HeatmapDay[] }
   }>(null)
 
+  // Deterministic formatters to avoid locale-based hydration mismatches
+  const numberFormatter = new Intl.NumberFormat('en-US')
+  const formatDateUTC = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC' })
+
   // PRs
   const [prs, setPrs] = useState<null | { totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }, recent: any[] }>(null)
   const [prsErr, setPrsErr] = useState<string | null>(null)
@@ -238,35 +242,35 @@ export default function DashboardPage() {
                     <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Sparkles className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm text-gray-500">Total Contributions</div>
-                      <div className="text-xl font-semibold">{contriData.totals.totalContributions.toLocaleString()}</div>
+                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalContributions)}</div>
                     </div>
                   </Card>
                   <Card className="p-4 flex items-center gap-3">
                     <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitCommit className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm text-gray-500">Commits</div>
-                      <div className="text-xl font-semibold">{contriData.totals.totalCommits.toLocaleString()}</div>
+                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalCommits)}</div>
                     </div>
                   </Card>
                   <Card className="p-4 flex items-center gap-3">
                     <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitPullRequest className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm text-gray-500">Pull Requests</div>
-                      <div className="text-xl font-semibold">{contriData.totals.totalPRs.toLocaleString()}</div>
+                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalPRs)}</div>
                     </div>
                   </Card>
                   <Card className="p-4 flex items-center gap-3">
                     <div className="p-2 rounded-md bg-gray-100 text-gray-700"><MessageSquare className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm text-gray-500">Issues</div>
-                      <div className="text-xl font-semibold">{contriData.totals.totalIssues.toLocaleString()}</div>
+                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalIssues)}</div>
                     </div>
                   </Card>
                   <Card className="p-4 flex items-center gap-3">
                     <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Calendar className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm text-gray-500">Reviews</div>
-                      <div className="text-xl font-semibold">{contriData.totals.totalReviews.toLocaleString()}</div>
+                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalReviews)}</div>
                     </div>
                   </Card>
                 </div>
@@ -288,7 +292,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <div className="text-sm text-gray-500">Contribution Calendar</div>
-                      <div className="text-lg font-semibold">{new Date(contriData.range.from).toLocaleDateString()} - {new Date(contriData.range.to).toLocaleDateString()}</div>
+                      <div className="text-lg font-semibold">{formatDateUTC(contriData.range.from)} - {formatDateUTC(contriData.range.to)}</div>
                     </div>
                   </div>
                   <ContributionHeatmap days={contriData.calendar.days} />

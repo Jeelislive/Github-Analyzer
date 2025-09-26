@@ -1,6 +1,31 @@
 # GitHub Analyzer
 
+![License](https://img.shields.io/badge/license-MIT-green)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+![Last Commit](https://img.shields.io/github/last-commit/jeelrupareliya/github-analyzer)
+
 A Next.js application that analyzes GitHub repositories and presents AI-powered insights, architecture visualizations, and project health metrics through a modern dashboard.
+
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Monorepo Layout](#monorepo-layout)
+- [Prerequisites](#prerequisites)
+- [Environment Variables](#environment-variables)
+- [Database Setup (Prisma)](#database-setup-prisma)
+- [Scripts](#scripts)
+- [Running Locally](#running-locally)
+- [How It Works](#how-it-works)
+- [API Reference](#api-reference)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
 
 ![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758776790/Screenshot_from_2025-09-25_10-33-41_xqh2dz.png)
 ![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908146/Screenshot_from_2025-09-26_13-49-33_fmn68w.png)
@@ -61,13 +86,15 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-strong-random-secret"
 
 # GitHub OAuth (required)
-# Note: NextAuth GitHub provider uses GITHUB_ID and GITHUB_SECRET in this codebase.
+# Note: This repository expects GITHUB_ID and GITHUB_SECRET (see src/lib/auth.ts).
 GITHUB_ID="your-github-client-id"
 GITHUB_SECRET="your-github-client-secret"
 
 # Gemini AI (optional)
 GEMINI_API_KEY="your-gemini-api-key"
 ```
+
+Migration tip: If you previously used `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (as seen in older docs), rename them to `GITHUB_ID` / `GITHUB_SECRET` to match the current implementation.
 
 GitHub OAuth configuration:
 - Homepage URL: `http://localhost:3000`
@@ -128,6 +155,45 @@ Ensure `DATABASE_URL` in `.env.local` points to a running Postgres database.
 
 If `GEMINI_API_KEY` is not provided, the app uses safe fallbacks to keep the experience functional.
 
+## API Reference
+
+Public API routes are implemented using the Next.js App Router under `src/app/api/`. Key endpoints include:
+
+- `GET /api/auth/[...nextauth]` — NextAuth routes (GitHub OAuth; session, callbacks).
+- `POST /api/auth/register` — Optional registration helper for local flows.
+- `GET /api/analytics` — Aggregated analytics snapshot for dashboards.
+
+- GitHub data (used by dashboard and analytics pages):
+  - `GET /api/github/contributions?range=180d|365d`
+  - `GET /api/github/prs`
+  - `GET /api/github/issues`
+  - `GET /api/github/repos`
+  - `GET /api/github/activity?range=30d|180d`
+
+- Repository-centric analysis:
+  - `POST /api/analyze` — Standard analysis of a repository.
+  - `POST /api/analyze/enhanced` — Enhanced analysis (includes architecture insights and Gemini, if configured).
+  - `GET /api/repos` — List or search analyzed repos.
+  - `GET /api/repos/[repoId]` — Get details for a specific repo.
+  - `DELETE /api/repos/[repoId]/delete` — Remove a repository record.
+  - `GET /api/repos/[repoId]/architecture` — Architecture graph and metrics.
+  - `GET /api/repos/[repoId]/files/[fileId]` — File metadata.
+  - `GET /api/repos/files/[fileId]/content` — File content retrieval.
+
+Authentication: Most endpoints require a signed-in session (GitHub OAuth). The dashboard pages call the `/api/github/*` endpoints client-side and rely on the server to call the GitHub GraphQL/REST APIs using the authenticated token.
+
+Rate limits: Calls to GitHub APIs are subject to GitHub rate limits; some responses are cached and/or sampled to provide smooth UX.
+
+## Configuration
+
+Recommended configuration toggles (see `ARCHITECTURE_SETUP.md` for full details):
+
+- `analysisOptions.includeGeminiAnalysis` — Enable AI-powered insights when `GEMINI_API_KEY` is set.
+- `analysisOptions.maxFiles` / `maxCommits` — Control analysis scope.
+- `diagramOptions.diagramType` — `flowchart | graph | timeline | mindmap`.
+- `diagramOptions.layout` — `TB | TD | BT | RL | LR`.
+- `diagramOptions.theme` — `dark | default | forest | neutral`.
+
 ## Configuration Notes
 
 - The codebase uses NextAuth v4 with JWT sessions and Prisma adapter. If you previously used different env var names for GitHub OAuth (e.g., `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`), ensure both are aligned. This repository expects `GITHUB_ID` and `GITHUB_SECRET`.
@@ -139,6 +205,15 @@ If `GEMINI_API_KEY` is not provided, the app uses safe fallbacks to keep the exp
 - Database connection issues: verify `DATABASE_URL` and that your Postgres instance is reachable. Run `npx prisma migrate dev` again after schema changes.
 - Missing AI insights: confirm `GEMINI_API_KEY` is present. The app will still run with fallback data if omitted.
 - Build or type errors: run `npm run lint` and ensure Node.js version is compatible. Reinstall dependencies if necessary.
+
+FAQ
+
+- Q: Do I need a Gemini API key for the app to work?
+  - A: No. The app gracefully falls back to sample/derived data if `GEMINI_API_KEY` is not set.
+- Q: Which GitHub env vars does NextAuth use here?
+  - A: `GITHUB_ID` and `GITHUB_SECRET` as defined in `src/lib/auth.ts`.
+- Q: Does the analyzer support non-React projects?
+  - A: Yes. The architecture analyzer detects multiple ecosystems and languages; see `ARCHITECTURE_SETUP.md`.
 
 ## Project Structure
 
@@ -172,6 +247,8 @@ github-analyzer/
 
 If you plan to change authentication, database schema, or the analysis pipeline, include a migration plan and update relevant docs (`SETUP.md`, `ARCHITECTURE_SETUP.md`).
 
+You can use the issue templates in `.github/ISSUE_TEMPLATE/` to file bugs and feature requests. Pull requests are welcome—please keep PRs focused, add tests or sample data when applicable, and ensure `npm run lint` passes.
+
 ## Security
 
 - Do not commit `.env*` files or secrets
@@ -180,4 +257,12 @@ If you plan to change authentication, database schema, or the analysis pipeline,
 
 ## License
 
-Specify your license here (for example, MIT). If you add a `LICENSE` file, reference it in this section.
+This project is licensed under the MIT License. See the [`LICENSE`](./LICENSE) file for details.
+
+## Acknowledgements
+
+- GitHub REST/GraphQL APIs
+- Next.js, React, and TypeScript
+- NextAuth.js and Prisma
+- Chart.js, D3, Mermaid
+- Google Generative AI SDK (Gemini)
