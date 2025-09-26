@@ -3,6 +3,8 @@
 A Next.js application that analyzes GitHub repositories and presents AI-powered insights, architecture visualizations, and project health metrics through a modern dashboard.
 
 ![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758776790/Screenshot_from_2025-09-25_10-33-41_xqh2dz.png)
+![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908146/Screenshot_from_2025-09-26_13-49-33_fmn68w.png)
+![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908437/Screenshot_from_2025-09-26_14-09-34_gjsxvm.png)
 
 ## Features
 
