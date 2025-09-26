@@ -1,5 +1,13 @@
 import { EnhancedRepositoryData } from './enhanced-github-analyzer'
 
+// Lightweight debug logger gated by env
+const debugArch = (...args: any[]) => {
+  if (process.env.DEBUG_ANALYZER === '1') {
+    // eslint-disable-next-line no-console
+    console.log(...args)
+  }
+}
+
 export interface ComponentNode {
   id: string
   label: string
@@ -166,7 +174,7 @@ export class ArchitectureAnalyzer {
   }
 
   analyzeArchitecture(data: EnhancedRepositoryData): ArchitectureData {
-    console.log('🏗️ Starting architecture analysis...')
+    debugArch('🏗️ Starting architecture analysis...')
     
     const nodes: ComponentNode[] = []
     const edges: ComponentEdge[] = []
@@ -186,7 +194,7 @@ export class ArchitectureAnalyzer {
     // Calculate statistics
     const stats = this.calculateStats(nodes, edges)
     
-    console.log(`✅ Architecture analysis complete: ${nodes.length} components, ${edges.length} connections`)
+    debugArch(`✅ Architecture analysis complete: ${nodes.length} components, ${edges.length} connections`)
     
     return {
       nodes,

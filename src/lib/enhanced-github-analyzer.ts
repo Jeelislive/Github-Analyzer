@@ -4,6 +4,14 @@ import { architectureAnalyzer, type ArchitectureData } from './architecture-anal
 import { technologyAnalyzer, type TechnologyStack } from './technology-analyzer'
 import { scoringAnalyzer, type QualityScore } from './scoring-analyzer'
 
+// Lightweight debug logger gated by env
+const debug = (...args: any[]) => {
+  if (process.env.DEBUG_ANALYZER === '1') {
+    // eslint-disable-next-line no-console
+    console.log(...args)
+  }
+}
+
 export interface EnhancedRepositoryData {
   // Basic repository info
   repository: {
@@ -255,39 +263,39 @@ export class EnhancedGitHubAnalyzer {
       maxCommits = 100
     } = options
 
-    console.log(`🔍 Starting enhanced analysis of ${owner}/${repo}`)
+    debug(`🔍 Starting enhanced analysis of ${owner}/${repo}`)
 
     try {
       // 1. Fetch basic repository information
-      console.log('📊 Fetching repository metadata...')
+      debug('📊 Fetching repository metadata...')
       const repository = await this.fetchRepositoryInfo(owner, repo)
 
       // 2. Fetch engagement metrics
-      console.log('📈 Fetching engagement metrics...')
+      debug('📈 Fetching engagement metrics...')
       const metrics = await this.fetchEngagementMetrics(owner, repo)
 
       // 3. Fetch repository content and structure
-      console.log('📁 Fetching repository content...')
+      debug('📁 Fetching repository content...')
       const content = await this.fetchRepositoryContent(owner, repo, includeFileContent, maxFiles)
 
       // 4. Fetch development activity
-      console.log('🔄 Fetching development activity...')
+      debug('🔄 Fetching development activity...')
       const activity = await this.fetchDevelopmentActivity(owner, repo, includeCommitHistory, maxCommits)
 
       // 5. Fetch collaboration data
-      console.log('👥 Fetching collaboration data...')
+      debug('👥 Fetching collaboration data...')
       const collaboration = await this.fetchCollaborationData(owner, repo)
 
       // 6. Fetch releases and tags
-      console.log('🏷️ Fetching releases and tags...')
+      debug('🏷️ Fetching releases and tags...')
       const releases = await this.fetchReleasesAndTags(owner, repo)
 
       // 7. Extract dependencies
-      console.log('📦 Extracting dependencies...')
+      debug('📦 Extracting dependencies...')
       const dependencies = await this.extractDependencies(content)
 
       // 8. Fetch quality metrics
-      console.log('🔍 Fetching quality metrics...')
+      debug('🔍 Fetching quality metrics...')
       const quality = await this.fetchQualityMetrics(owner, repo)
 
       const enhancedData: EnhancedRepositoryData = {
@@ -302,38 +310,38 @@ export class EnhancedGitHubAnalyzer {
       }
 
       // 9. Generate architecture analysis
-      console.log('🏗️ Analyzing repository architecture...')
+      debug('🏗️ Analyzing repository architecture...')
       try {
         const architecture = architectureAnalyzer.analyzeArchitecture(enhancedData)
         enhancedData.architecture = architecture
-        console.log(`✅ Architecture analysis complete: ${architecture.nodes.length} components, ${architecture.edges.length} connections`)
+        debug(`✅ Architecture analysis complete: ${architecture.nodes.length} components, ${architecture.edges.length} connections`)
       } catch (error) {
         console.warn('Architecture analysis failed:', error)
       }
 
       // 10. Generate technology stack analysis
-      console.log('🔍 Analyzing technology stack...')
+      debug('🔍 Analyzing technology stack...')
       try {
         const technologyStack = technologyAnalyzer.analyzeTechnologyStack(enhancedData)
         enhancedData.technologyStack = technologyStack
-        console.log(`✅ Technology stack analysis complete: ${this.getTotalTechnologies(technologyStack)} technologies detected`)
+        debug(`✅ Technology stack analysis complete: ${this.getTotalTechnologies(technologyStack)} technologies detected`)
       } catch (error) {
         console.warn('Technology stack analysis failed:', error)
       }
 
       // 11. Generate quality scores
-      console.log('📊 Analyzing quality scores...')
+      debug('📊 Analyzing quality scores...')
       try {
         const qualityScores = scoringAnalyzer.analyzeQualityScores(enhancedData)
         enhancedData.qualityScores = qualityScores
-        console.log(`✅ Quality scoring complete: Overall score ${qualityScores.overall}/100`)
+        debug(`✅ Quality scoring complete: Overall score ${qualityScores.overall}/100`)
       } catch (error) {
         console.warn('Quality scoring failed:', error)
       }
 
       // 12. Generate Gemini AI insights
       if (includeGeminiAnalysis) {
-        console.log('🤖 Generating AI-powered insights with Gemini...')
+        debug('🤖 Generating AI-powered insights with Gemini...')
         try {
           const geminiInsights = await this.generateGeminiInsights(enhancedData)
           enhancedData.geminiInsights = geminiInsights
@@ -342,7 +350,7 @@ export class EnhancedGitHubAnalyzer {
         }
       }
 
-      console.log(`✅ Enhanced analysis complete for ${owner}/${repo}`)
+      debug(`✅ Enhanced analysis complete for ${owner}/${repo}`)
       return enhancedData
 
     } catch (error) {
@@ -416,7 +424,7 @@ export class EnhancedGitHubAnalyzer {
           }
         }
       } catch (error) {
-        console.log('No README found')
+        debug('No README found')
       }
 
       // Fetch package.json if it exists
@@ -440,7 +448,7 @@ export class EnhancedGitHubAnalyzer {
           }
         }
       } catch (error) {
-        console.log('No license found')
+        debug('No license found')
       }
 
     } catch (error) {
@@ -695,7 +703,7 @@ export class EnhancedGitHubAnalyzer {
     try {
       // Extract from package.json
       if (content.packageJson) {
-        console.log('📦 Extracting dependencies from package.json')
+        debug('📦 Extracting dependencies from package.json')
         const pkg = content.packageJson
         
         if (pkg.dependencies) {
@@ -735,53 +743,53 @@ export class EnhancedGitHubAnalyzer {
       // Extract from requirements.txt
       const requirementsFile = content.files.find((f: any) => f.name === 'requirements.txt')
       if (requirementsFile && requirementsFile.content) {
-        console.log('🐍 Extracting dependencies from requirements.txt')
+        debug('🐍 Extracting dependencies from requirements.txt')
         this.extractPythonDependencies(requirementsFile.content, dependencies)
       }
 
       // Extract from Gemfile
       const gemfile = content.files.find((f: any) => f.name === 'Gemfile')
       if (gemfile && gemfile.content) {
-        console.log('💎 Extracting dependencies from Gemfile')
+        debug('💎 Extracting dependencies from Gemfile')
         this.extractRubyDependencies(gemfile.content, dependencies)
       }
 
       // Extract from pom.xml
       const pomFile = content.files.find((f: any) => f.name === 'pom.xml')
       if (pomFile && pomFile.content) {
-        console.log('☕ Extracting dependencies from pom.xml')
+        debug('☕ Extracting dependencies from pom.xml')
         this.extractMavenDependencies(pomFile.content, dependencies)
       }
 
       // Extract from build.gradle
       const gradleFile = content.files.find((f: any) => f.name === 'build.gradle')
       if (gradleFile && gradleFile.content) {
-        console.log('🔧 Extracting dependencies from build.gradle')
+        debug('🔧 Extracting dependencies from build.gradle')
         this.extractGradleDependencies(gradleFile.content, dependencies)
       }
 
       // Extract from Cargo.toml
       const cargoFile = content.files.find((f: any) => f.name === 'Cargo.toml')
       if (cargoFile && cargoFile.content) {
-        console.log('🦀 Extracting dependencies from Cargo.toml')
+        debug('🦀 Extracting dependencies from Cargo.toml')
         this.extractRustDependencies(cargoFile.content, dependencies)
       }
 
       // Extract from go.mod
       const goModFile = content.files.find((f: any) => f.name === 'go.mod')
       if (goModFile && goModFile.content) {
-        console.log('🐹 Extracting dependencies from go.mod')
+        debug('🐹 Extracting dependencies from go.mod')
         this.extractGoDependencies(goModFile.content, dependencies)
       }
 
       // Extract from composer.json
       const composerFile = content.files.find((f: any) => f.name === 'composer.json')
       if (composerFile && composerFile.content) {
-        console.log('🐘 Extracting dependencies from composer.json')
+        debug('🐘 Extracting dependencies from composer.json')
         this.extractComposerDependencies(composerFile.content, dependencies)
       }
 
-      console.log(`✅ Extracted ${dependencies.production.length} production and ${dependencies.development.length} development dependencies`)
+      debug(`✅ Extracted ${dependencies.production.length} production and ${dependencies.development.length} development dependencies`)
 
     } catch (error) {
       console.warn('Failed to extract dependencies:', error)

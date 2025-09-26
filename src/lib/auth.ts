@@ -55,7 +55,10 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user, account, profile, isNewUser }) {
-      console.log('Sign in event:', { user: user.email, provider: account?.provider })
+      if (process.env.DEBUG_AUTH === '1') {
+        // eslint-disable-next-line no-console
+        console.log('Sign in event:', { user: user.email, provider: account?.provider })
+      }
     },
   },
 }
