@@ -18,3 +18,5 @@ Feature	Description
 📅 Events	Weekly community calls, open-source sprints, Hacktoberfest events
 
 🧠 Resources	Open-source guides, contribution tutorials, contributor handbook
+
+-> Add Dark theme to this project
