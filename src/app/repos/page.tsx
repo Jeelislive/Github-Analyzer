@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { FolderGit2, Star, GitFork } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { timeAgo } from '@/lib/format'
 
 interface ReposResponse {
   totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }
@@ -13,6 +15,27 @@ export default function ReposPage() {
   const [data, setData] = useState<ReposResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  type Section = 'all' | 'sources' | 'forks' | 'archived'
+  type Item = {
+    id: number
+    name: string
+    full_name: string
+    description: string | null
+    html_url: string
+    language: string | null
+    stargazers_count: number
+    forks_count: number
+    pushed_at: string
+    archived?: boolean
+    fork?: boolean
+  }
+  const [sections, setSections] = useState<Record<Section, { items: Item[]; loaded: boolean; loading: boolean }>>({
+    all: { items: [], loaded: false, loading: false },
+    sources: { items: [], loaded: false, loading: false },
+    forks: { items: [], loaded: false, loading: false },
+    archived: { items: [], loaded: false, loading: false },
+  })
+  const [activeTab, setActiveTab] = useState<Section>('all')
 
   useEffect(() => {
     let cancelled = false
@@ -25,14 +48,26 @@ export default function ReposPage() {
     return () => { cancelled = true }
   }, [])
 
-  const languageList = useMemo(() => {
-    if (!data) return []
-    const entries = Object.entries(data.totals.languages)
-    const total = entries.reduce((a, [, v]) => a + v, 0)
-    return entries
-      .sort((a, b) => b[1] - a[1])
-      .map(([lang, count]) => ({ lang, count, pct: Math.round((count / total) * 100) }))
-  }, [data])
+  const loadSection = async (section: Section) => {
+    if (sections[section].loaded || sections[section].loading) return
+    setSections((s) => ({ ...s, [section]: { ...s[section], loading: true } }))
+    try {
+      const res = await fetch(`/api/github/repos?section=${section}`)
+      if (!res.ok) throw new Error(await res.text())
+      const json: { section: Section; total: number; items: Item[] } = await res.json()
+      setSections((s) => ({ ...s, [section]: { items: json.items, loaded: true, loading: false } }))
+    } catch {
+      setSections((s) => ({ ...s, [section]: { ...s[section], loading: false } }))
+    }
+  }
+  useEffect(() => {
+    loadSection('all')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    loadSection(activeTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   if (loading) return <div className="p-6">Loading…</div>
   if (error) return <div className="p-6 text-red-600">{error}</div>
@@ -72,33 +107,58 @@ export default function ReposPage() {
         </Card>
       </div>
 
-      {/* Lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-4">
-          <div className="text-sm font-medium mb-3">Top by Stars</div>
-          <div className="space-y-2 max-h-[70vh] overflow-auto">
-            {data.topByStars.map((r) => (
-              <a key={r.id} href={r.html_url} target="_blank" className="block text-sm text-blue-700 hover:underline truncate">
-                {r.full_name} <span className="text-gray-500">★ {r.stargazers_count}</span>
-              </a>
-            ))}
-          </div>
-        </Card>
-        <Card className="p-4 lg:col-span-2">
-          <div className="text-sm font-medium mb-3">Languages</div>
-          <div className="space-y-3">
-            {languageList.map((l) => (
-              <div key={l.lang} className="flex items-center gap-3">
-                <div className="w-28 text-sm text-gray-600 shrink-0">{l.lang}</div>
-                <div className="flex-1 h-2 bg-gray-100 rounded">
-                  <div className="h-2 rounded bg-purple-500" style={{ width: `${l.pct}%` }} />
-                </div>
-                <div className="w-10 text-right text-sm">{l.pct}%</div>
-              </div>
-            ))}
-          </div>
-        </Card>
+      {/* Tabs */}
+      <div className="mb-3 flex items-center gap-2 text-xs">
+        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('all')}>All</button>
+        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='sources' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('sources')}>Sources</button>
+        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='forks' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('forks')}>Forks</button>
+        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='archived' ? 'bg-gray-600 text-white border-gray-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('archived')}>Archived</button>
       </div>
+
+      {/* Active Section List */}
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <div className="text-sm font-medium">
+            {activeTab === 'all' && 'All Repositories'}
+            {activeTab === 'sources' && 'Source Repositories'}
+            {activeTab === 'forks' && 'Forked Repositories'}
+            {activeTab === 'archived' && 'Archived Repositories'}
+          </div>
+        </div>
+        <div className="divide-y">
+          {sections[activeTab].items.map((r) => (
+            <a key={r.id} href={r.html_url} target="_blank" rel="noopener noreferrer" className="group block px-4 py-3 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 inline-flex items-center justify-center rounded-md p-1.5 bg-gray-50 text-gray-700">
+                  <FolderGit2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm text-gray-900 truncate group-hover:underline">{r.full_name}</div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 flex-wrap">
+                    {r.language && <Badge variant="outline" className="px-1.5 py-0.5 text-xs">{r.language}</Badge>}
+                    {typeof r.stargazers_count === 'number' && (
+                      <span className="inline-flex items-center gap-1"><Star className="w-3 h-3"/> {r.stargazers_count}</span>
+                    )}
+                    {typeof r.forks_count === 'number' && (
+                      <span className="inline-flex items-center gap-1"><GitFork className="w-3 h-3"/> {r.forks_count}</span>
+                    )}
+                    {r.fork && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-amber-50 text-amber-700 border-amber-200">fork</span>}
+                    {r.archived && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-gray-100 text-gray-700 border-gray-200">archived</span>}
+                    <span>Pushed {timeAgo(r.pushed_at)}</span>
+                  </div>
+                  {r.description && <div className="mt-1 text-xs text-gray-700 line-clamp-2">{r.description}</div>}
+                </div>
+              </div>
+            </a>
+          ))}
+          {sections[activeTab].items.length === 0 && !sections[activeTab].loading && (
+            <div className="px-4 py-8 text-sm text-gray-600">No repositories found.</div>
+          )}
+          {sections[activeTab].loading && (
+            <div className="px-4 py-8 text-sm text-gray-600">Loading…</div>
+          )}
+        </div>
+      </Card>
     </div>
   )
 }

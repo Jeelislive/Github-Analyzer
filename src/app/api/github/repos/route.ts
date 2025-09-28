@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { Octokit } from '@octokit/rest'
 import { getCache, setCache } from '@/lib/serverCache'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -16,9 +16,13 @@ export async function GET() {
     const { data: me } = await octokit.rest.users.getAuthenticated()
     const login = me.login
 
+    const url = new URL(req.url)
+    const section = url.searchParams.get('section') as 'all' | 'sources' | 'forks' | 'archived' | null
+
     const cacheKey = `repos:${login}`
     const cached = getCache<any>(cacheKey)
-    if (cached && Date.now() - cached.fetchedAt < 10 * 60 * 1000) {
+    // Only short-circuit on cache for summary (non-section) requests
+    if (!section && cached && Date.now() - cached.fetchedAt < 10 * 60 * 1000) {
       return NextResponse.json(cached.data, { headers: cached.etag ? { ETag: cached.etag } : undefined })
     }
 
@@ -30,6 +34,30 @@ export async function GET() {
       if (!data.length) break
       repos.push(...data)
       page += 1
+    }
+
+    // Sectional response (return full items)
+    if (section) {
+      let filtered = repos
+      if (section === 'sources') filtered = repos.filter((r) => !r.fork && !r.archived)
+      if (section === 'forks') filtered = repos.filter((r) => r.fork)
+      if (section === 'archived') filtered = repos.filter((r) => r.archived)
+      const items = filtered
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          full_name: r.full_name,
+          description: r.description,
+          html_url: r.html_url,
+          language: r.language,
+          stargazers_count: r.stargazers_count,
+          forks_count: r.forks_count,
+          pushed_at: r.pushed_at,
+          archived: r.archived,
+          fork: r.fork,
+        }))
+        .sort((a, b) => new Date(b.pushed_at).getTime() - new Date(a.pushed_at).getTime())
+      return NextResponse.json({ section, total: items.length, items })
     }
 
     // Aggregations
