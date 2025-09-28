@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { Octokit } from '@octokit/rest'
 import { getCache, setCache } from '@/lib/server-cache'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -16,12 +16,81 @@ export async function GET() {
     const { data: me } = await octokit.rest.users.getAuthenticated()
     const login = me.login
 
+    // Parse query for sectional listing
+    const url = new URL(req.url)
+    const section = url.searchParams.get('section') as 'all' | 'open' | 'merged' | 'closed' | null
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
+    const per_page = Math.min(50, Math.max(1, parseInt(url.searchParams.get('per_page') || '20', 10)))
+
     // Cache key per-user
     const cacheKey = `prs:${login}`
     const cached = getCache<any>(cacheKey)
-    // Serve fresh cache directly (TTL 5 min)
-    if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
+    // Serve fresh cache directly (TTL 5 min) only for summary requests
+    if (!section && cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
       return NextResponse.json(cached.data)
+    }
+
+    // Helper utilities for clarity
+    const buildQuery = (sec: 'all' | 'open' | 'merged' | 'closed') => {
+      const base = `type:pr author:${login} is:public`
+      if (sec === 'open') return `${base} is:open`
+      if (sec === 'merged') return `${base} is:merged`
+      if (sec === 'closed') return `${base} is:closed -is:merged`
+      return base
+    }
+
+    const searchAll = async (query: string) => {
+      const perPage = 100
+      let pageIndex = 1
+      const items: any[] = []
+      let totalCount = 0
+      // Loop until fewer than perPage items returned or hitting GitHub 1000 cap
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data } = await octokit.rest.search.issuesAndPullRequests({ q: query, page: pageIndex, per_page: perPage, sort: 'updated', order: 'desc' })
+        totalCount = data.total_count
+        items.push(...data.items)
+        if (data.items.length < perPage) break
+        if (items.length >= Math.min(1000, totalCount)) break
+        pageIndex += 1
+      }
+      return { items, totalCount }
+    }
+
+    const mapItem = (i: any, merged: boolean) => ({
+      id: i.id,
+      number: i.number,
+      title: i.title,
+      state: i.state,
+      merged,
+      html_url: i.html_url,
+      repository_url: i.repository_url,
+      updated_at: i.updated_at,
+    })
+
+    // Sectional response: return full list for the requested section
+    if (section) {
+      if (section === 'all') {
+        const base = `type:pr author:${login} is:public`
+        const [openRes, mergedRes, closedRes] = await Promise.all([
+          searchAll(`${base} is:open`),
+          searchAll(`${base} is:merged`),
+          searchAll(`${base} is:closed -is:merged`),
+        ])
+        const labeled = [
+          ...openRes.items.map((i) => mapItem(i, false)),
+          ...mergedRes.items.map((i) => mapItem(i, true)),
+          ...closedRes.items.map((i) => mapItem(i, false)),
+        ]
+        labeled.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        const total = Math.min(1000, openRes.totalCount) + Math.min(1000, mergedRes.totalCount) + Math.min(1000, closedRes.totalCount)
+        return NextResponse.json({ section, total, items: labeled })
+      }
+
+      const q = buildQuery(section)
+      const { items, totalCount } = await searchAll(q)
+      const out = items.map((i) => mapItem(i, section === 'merged'))
+      return NextResponse.json({ section, total: Math.min(totalCount, 1000), items: out })
     }
 
     // Try conditional requests using ETag when available
@@ -44,27 +113,55 @@ export async function GET() {
     }
 
     // Compute avg time to merge from last up to 20 merged PRs
-    const { data: mergedList } = await octokit.rest.search.issuesAndPullRequests({
-      q: `type:pr author:${login} is:merged is:public`, per_page: 20, sort: 'updated', order: 'desc'
-    })
-
-    let avgTimeToMergeMs: number | null = null
-    if (mergedList.items?.length) {
-      const durations: number[] = []
-      for (const item of mergedList.items) {
+    const computeAvgTimeToMerge = async (): Promise<number | null> => {
+      const { data } = await octokit.rest.search.issuesAndPullRequests({
+        q: `type:pr author:${login} is:merged is:public`, per_page: 20, sort: 'updated', order: 'desc'
+      })
+      if (!data.items?.length) return null
+      const pullFetches = data.items.map((item) => {
         const repoFullName = item.repository_url?.split('/repos/')[1]
-        if (!repoFullName) continue
+        if (!repoFullName) return Promise.resolve<null>(null)
         const [owner, repo] = repoFullName.split('/')
-        const number = item.number
-        try {
-          const { data: pr } = await octokit.rest.pulls.get({ owner, repo, pull_number: number })
-          if (pr.merged_at && pr.created_at) {
-            durations.push(new Date(pr.merged_at).getTime() - new Date(pr.created_at).getTime())
-          }
-        } catch {}
+        return octokit.rest.pulls.get({ owner, repo, pull_number: item.number })
+          .then(r => r.data)
+          .catch(() => null as any)
+      })
+      const settled = await Promise.allSettled(pullFetches)
+      const durations: number[] = []
+      for (const s of settled) {
+        if (s.status === 'fulfilled' && s.value && s.value.merged_at && s.value.created_at) {
+          durations.push(new Date(s.value.merged_at).getTime() - new Date(s.value.created_at).getTime())
+        }
       }
-      if (durations.length) avgTimeToMergeMs = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      if (!durations.length) return null
+      return Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     }
+    const avgTimeToMergeMs = await computeAvgTimeToMerge()
+
+    // Enrich recent with merged flag
+    const recentBasic = recent.data.items.map((i) => ({
+      id: i.id,
+      number: i.number,
+      title: i.title,
+      state: i.state,
+      html_url: i.html_url,
+      repository_url: i.repository_url,
+      updated_at: i.updated_at,
+    }))
+
+    const enrichRecentMerged = async (items: typeof recentBasic) => {
+      const fetches = items.map((item) => {
+        const repoFullName = item.repository_url?.split('/repos/')[1]
+        if (!repoFullName) return Promise.resolve({ ...item, merged: false })
+        const [owner, repo] = repoFullName.split('/')
+        return octokit.rest.pulls.get({ owner, repo, pull_number: item.number })
+          .then(({ data }) => ({ ...item, merged: Boolean(data.merged_at) }))
+          .catch(() => ({ ...item, merged: false }))
+      })
+      const results = await Promise.all(fetches)
+      return results
+    }
+    const recentEnriched = await enrichRecentMerged(recentBasic)
 
     const response = {
       totals: {
@@ -74,15 +171,7 @@ export async function GET() {
         reviewed: reviewed.data.total_count,
         avgTimeToMergeMs,
       },
-      recent: recent.data.items.map((i) => ({
-        id: i.id,
-        number: i.number,
-        title: i.title,
-        state: i.state,
-        html_url: i.html_url,
-        repository_url: i.repository_url,
-        updated_at: i.updated_at,
-      })),
+      recent: recentEnriched,
     }
 
     // Save cache with ETag from first search if present
