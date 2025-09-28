@@ -1,4 +1,4 @@
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
 
 export const computeProjectHealth = (insights: GeminiRepositoryInsights) => {
   const cq = typeof insights.codeQuality?.overallScore === 'number' ? insights.codeQuality.overallScore : 0

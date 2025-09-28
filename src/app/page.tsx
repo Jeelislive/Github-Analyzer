@@ -1,9 +1,9 @@
 import Hero from '@/components/sections/hero'
 import Features from '@/components/sections/features'
-import HowItWorks from '@/components/sections/how-it-works'
+import HowItWorks from '@/components/sections/howItWorks'
 import Testimonials from '@/components/sections/testimonials'
 import Pricing from '@/components/sections/pricing'
-import DocumentationPreview from '@/components/sections/documentation-preview'
+import DocumentationPreview from '@/components/sections/documentationPreview'
 
 export default function Home() {
   return (

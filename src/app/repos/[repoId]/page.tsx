@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import MermaidArchitectureDiagram from '@/components/ui/mermaid-architecture-diagram'
-import ComponentCodeModal from '@/components/ui/component-code-modal'
-import DeleteConfirmationDialog from '@/components/ui/delete-confirmation-dialog'
+import MermaidArchitectureDiagram from '@/components/ui/mermaidArchitectureDiagram'
+import ComponentCodeModal from '@/components/ui/componentCodeModal'
+import DeleteConfirmationDialog from '@/components/ui/deleteConfirmationDialog'
 import { ArrowLeft, Search, Code, FileText, GitBranch, Zap, Eye, Trash2 } from 'lucide-react'
 
 interface Component {

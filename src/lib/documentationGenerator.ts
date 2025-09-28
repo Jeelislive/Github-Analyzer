@@ -356,15 +356,15 @@ export async function generateArchitectureDiagram(repoId: string): Promise<any> 
         score += 70
         nodeType = 'service'
         layer = 'services'
-        if (path.includes('github-analyzer')) {
+        if (path.includes('githubAnalyzer')) {
           friendlyName = 'GitHub Integration'
           score += 25
         }
-        else if (path.includes('code-analyzer')) {
+        else if (path.includes('codeAnalyzer')) {
           friendlyName = 'Code Analysis Engine'
           score += 25
         }
-        else if (path.includes('documentation-generator')) {
+        else if (path.includes('documentationGenerator')) {
           friendlyName = 'Documentation Generator'
           score += 20
         }

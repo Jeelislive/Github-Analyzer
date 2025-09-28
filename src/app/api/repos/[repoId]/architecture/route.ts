@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { generateArchitectureDiagram } from "@/lib/documentation-generator"
+import { generateArchitectureDiagram } from "@/lib/documentationGenerator"
 
 // Simple in-memory cache for architecture diagrams
 const architectureCache = new Map<string, { data: any; timestamp: number }>()

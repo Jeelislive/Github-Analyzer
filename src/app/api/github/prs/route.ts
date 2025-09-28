@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Octokit } from '@octokit/rest'
-import { getCache, setCache } from '@/lib/server-cache'
+import { getCache, setCache } from '@/lib/serverCache'
 
 export async function GET(req: Request) {
   try {

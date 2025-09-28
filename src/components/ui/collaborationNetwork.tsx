@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
 
 interface CollaborationNetworkProps {
   data: GeminiRepositoryInsights['visualizations']['collaborationNetwork']

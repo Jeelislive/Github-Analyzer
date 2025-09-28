@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { TrendingUp, Target, Network, BarChart3 } from 'lucide-react'
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
 import { computeProjectHealth, getScoreColor } from './utils'
 
 interface OverviewTabProps {

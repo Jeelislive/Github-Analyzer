@@ -6,7 +6,7 @@ import { Card } from './card'
 import { Badge } from './badge'
 import { Button } from './button'
 import { ZoomIn, ZoomOut, RotateCcw, Download, Info, Layers, Grid3X3, Eye, EyeOff, GitBranch, Network, TreePine, Brain, Palette, Activity } from 'lucide-react'
-import MermaidArchitectureDiagram from './mermaid-architecture-diagram'
+import MermaidArchitectureDiagram from './mermaidArchitectureDiagram'
 
 // Enhanced Architecture Analyzer with Gemini AI Integration
 export class ArchitectureAnalyzer {

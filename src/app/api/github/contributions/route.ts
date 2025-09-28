@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Octokit } from '@octokit/rest'
-import { githubGraphQL, CONTRIBUTIONS_QUERY } from '@/lib/github-graphql'
-import { getCache, setCache } from '@/lib/server-cache'
+import { githubGraphQL, CONTRIBUTIONS_QUERY } from '@/lib/githubGraphql'
+import { getCache, setCache } from '@/lib/serverCache'
 
 function startOfDayISO(date: Date) {
   const d = new Date(date)

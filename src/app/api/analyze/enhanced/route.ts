@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { enhancedGitHubAnalyzer } from "@/lib/enhanced-github-analyzer"
+import { enhancedGitHubAnalyzer } from "@/lib/enhancedGithubAnalyzer"
 
 export async function POST(request: NextRequest) {
   try {

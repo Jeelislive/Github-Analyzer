@@ -2,7 +2,7 @@ import React from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Lightbulb, Zap } from 'lucide-react'
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
 
 interface RecommendationsTabProps {
   insights: GeminiRepositoryInsights

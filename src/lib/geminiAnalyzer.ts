@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { technologyAnalyzer, type TechnologyStack } from './technology-analyzer'
-import { scoringAnalyzer, type QualityScore } from './scoring-analyzer'
+import { technologyAnalyzer, type TechnologyStack } from './technologyAnalyzer'
+import { scoringAnalyzer, type QualityScore } from './scoringAnalyzer'
 
 // Initialize Gemini AI with environment variable
 const apiKey = process.env.GEMINI_API_KEY

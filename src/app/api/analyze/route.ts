@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { analyzeRepository } from "@/lib/github-analyzer"
+import { analyzeRepository } from "@/lib/githubAnalyzer"
 import { z } from "zod"
 
 const analyzeSchema = z.object({

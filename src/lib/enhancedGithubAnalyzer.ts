@@ -1,8 +1,8 @@
 import { Octokit } from '@octokit/rest'
-import { geminiAnalyzer, type GeminiRepositoryInsights } from './gemini-analyzer'
-import { architectureAnalyzer, type ArchitectureData } from './architecture-analyzer'
-import { technologyAnalyzer, type TechnologyStack } from './technology-analyzer'
-import { scoringAnalyzer, type QualityScore } from './scoring-analyzer'
+import { geminiAnalyzer, type GeminiRepositoryInsights } from './geminiAnalyzer'
+import { architectureAnalyzer, type ArchitectureData } from './architectureAnalyzer'
+import { technologyAnalyzer, type TechnologyStack } from './technologyAnalyzer'
+import { scoringAnalyzer, type QualityScore } from './scoringAnalyzer'
 
 // Lightweight debug logger gated by env
 const debug = (...args: any[]) => {

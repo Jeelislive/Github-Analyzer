@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Bar } from 'react-chartjs-2'
-import './chartjs-setup'
+import './chartjsSetup'
 
 export default function BarChartJS({
   labels,

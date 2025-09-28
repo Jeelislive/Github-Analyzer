@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import AIInsightsDashboard from '@/components/ui/ai-insights-dashboard'
-import CollaborationNetwork from '@/components/ui/collaboration-network'
-import EvolutionTimeline from '@/components/ui/evolution-timeline'
+import AIInsightsDashboard from '@/components/ui/aiInsightsDashboard'
+import CollaborationNetwork from '@/components/ui/collaborationNetwork'
+import EvolutionTimeline from '@/components/ui/evolutionTimeline'
 import { GitBranch, Plus, Search, Sparkles, Brain, Zap, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
 
 interface Repository {

@@ -22,11 +22,11 @@ import {
   Star,
   Activity
 } from 'lucide-react'
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
-import OverviewTab from './ai-insights-dashboard/OverviewTab'
-import TeamTab from './ai-insights-dashboard/TeamTab'
-import BusinessTab from './ai-insights-dashboard/BusinessTab'
-import RecommendationsTab from './ai-insights-dashboard/RecommendationsTab'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
+import OverviewTab from './aiInsightsDashboard/OverviewTab'
+import TeamTab from './aiInsightsDashboard/TeamTab'
+import BusinessTab from './aiInsightsDashboard/BusinessTab'
+import RecommendationsTab from './aiInsightsDashboard/RecommendationsTab'
 
 interface AIInsightsDashboardProps {
   insights: GeminiRepositoryInsights

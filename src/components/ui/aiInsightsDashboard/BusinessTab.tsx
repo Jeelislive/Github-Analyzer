@@ -2,7 +2,7 @@ import React from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { BarChart3, Target, TrendingUp } from 'lucide-react'
-import type { GeminiRepositoryInsights } from '@/lib/gemini-analyzer'
+import type { GeminiRepositoryInsights } from '@/lib/geminiAnalyzer'
 
 interface BusinessTabProps {
   insights: GeminiRepositoryInsights

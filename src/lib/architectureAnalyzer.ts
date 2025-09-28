@@ -1,4 +1,4 @@
-import { EnhancedRepositoryData } from './enhanced-github-analyzer'
+import { EnhancedRepositoryData } from './enhancedGithubAnalyzer'
 
 // Lightweight debug logger gated by env
 const debugArch = (...args: any[]) => {

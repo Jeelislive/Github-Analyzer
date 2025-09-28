@@ -1,4 +1,4 @@
-import { EnhancedRepositoryData } from './enhanced-github-analyzer'
+import { EnhancedRepositoryData } from './enhancedGithubAnalyzer'
 
 export interface QualityScore {
   overall: number

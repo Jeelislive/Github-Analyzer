@@ -1,8 +1,8 @@
 import { Octokit } from "@octokit/rest"
 import { prisma } from "./prisma"
-import { analyzeCode, parseImports, calculateComplexity } from "./code-analyzer"
-import { generateDocumentation } from "./documentation-generator"
-import { GeminiAnalyzer } from "./gemini-analyzer"
+import { analyzeCode, parseImports, calculateComplexity } from "./codeAnalyzer"
+import { generateDocumentation } from "./documentationGenerator"
+import { GeminiAnalyzer } from "./geminiAnalyzer"
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
