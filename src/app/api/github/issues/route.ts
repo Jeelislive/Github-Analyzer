@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Octokit } from '@octokit/rest'
+import { getOctokit, wait } from '@/lib/octokit'
 import { getCache, setCache } from '@/lib/serverCache'
 
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
     const accessToken: string | undefined = session.accessToken
     if (!accessToken) return NextResponse.json({ error: 'Missing GitHub access token' }, { status: 400 })
 
-    const octokit = new Octokit({ auth: accessToken })
+    const octokit = getOctokit(accessToken)
     const { data: me } = await octokit.rest.users.getAuthenticated()
     const login = me.login
 
@@ -23,16 +23,20 @@ export async function GET() {
     }
 
     const headersTotal = cached?.etag ? { 'if-none-match': cached.etag } : undefined
-    let total, open, closed, recent
+    let total: any, open: any, closed: any, recent: any
     try {
-      ;[total, open, closed, recent] = await Promise.all([
-        octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:public`, per_page: 1, headers: headersTotal }),
-        octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:open is:public`, per_page: 1 }),
-        octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:closed is:public`, per_page: 1 }),
-        octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:public`, per_page: 10, sort: 'updated', order: 'desc' }),
-      ])
+      total = await octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:public`, per_page: 1, headers: headersTotal })
+      await wait(150)
+      open = await octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:open is:public`, per_page: 1 })
+      await wait(150)
+      closed = await octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:closed is:public`, per_page: 1 })
+      await wait(150)
+      recent = await octokit.rest.search.issuesAndPullRequests({ q: `type:issue author:${login} is:public`, per_page: 10, sort: 'updated', order: 'desc' })
     } catch (err: any) {
       if (err.status === 304 && cached?.data) {
+        return NextResponse.json(cached.data)
+      }
+      if ((err.status === 403 || err.status === 429) && cached?.data) {
         return NextResponse.json(cached.data)
       }
       throw err
@@ -69,7 +73,7 @@ export async function GET() {
         closed: closed.data.total_count,
         avgFirstResponseMs,
       },
-      recent: recent.data.items.map((i) => ({
+      recent: recent.data.items.map((i: any) => ({
         id: i.id,
         number: i.number,
         title: i.title,

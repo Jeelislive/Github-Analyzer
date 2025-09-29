@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Octokit } from '@octokit/rest'
+import { getOctokit } from '@/lib/octokit'
 import { getCache, setCache } from '@/lib/serverCache'
 
 export async function GET() {
@@ -17,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Missing GitHub access token' }, { status: 400 })
     }
 
-    const octokit = new Octokit({ auth: accessToken })
+    const octokit = getOctokit(accessToken)
 
     // Try conditional user fetch using ETag if cached
     const cacheKeySeed = 'me'

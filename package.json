@@ -12,6 +12,8 @@
     "@auth/prisma-adapter": "^2.10.0",
     "@babel/parser": "^7.28.3",
     "@babel/traverse": "^7.28.3",
+    "@octokit/plugin-retry": "^7.1.0",
+    "@octokit/plugin-throttling": "^9.3.0",
     "@google/generative-ai": "^0.24.1",
     "@next-auth/prisma-adapter": "^1.0.7",
     "@octokit/rest": "^22.0.0",
