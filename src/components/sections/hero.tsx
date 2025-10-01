@@ -26,18 +26,18 @@ export default function Hero() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!session?.user) {
-      setError('Please sign in to analyze a repository')
+      setError('Please sign in to analyze your GitHub data')
       return
     }
     if (!repoUrl) {
-      setError('Please enter a valid GitHub repository URL')
+      setError('Please enter a valid GitHub profile or repository URL')
       return
     }
     
     setLoadingState({
       isLoading: true,
       progress: 0,
-      message: 'Fetching repository...'
+      message: 'Fetching GitHub data...'
     })
     
     // Simulate loading progress
@@ -50,10 +50,10 @@ export default function Hero() {
         return {
           ...prev,
           progress: prev.progress + 10,
-          message: prev.progress < 30 ? 'Fetching repository...' :
-                   prev.progress < 60 ? 'Analyzing code structure...' :
-                   prev.progress < 90 ? 'Generating documentation...' :
-                   'Finalizing...'
+          message: prev.progress < 30 ? 'Fetching GitHub data...' :
+                   prev.progress < 60 ? 'Analyzing contributions, PRs, and issues...' :
+                   prev.progress < 90 ? 'Compiling repository insights...' :
+                   'Finalizing insights...'
         }
       })
     }, 500)
@@ -71,11 +71,11 @@ export default function Hero() {
           <div className="flex flex-col text-center lg:text-left space-y-8">
             <div className="space-y-4">
               <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-                Generate beautiful docs from any{' '}
-                <span className="text-primary">GitHub repository</span>
+                Understand your impact on{' '}
+                <span className="text-primary">GitHub at a glance</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                AI-powered documentation generation that understands your code structure and creates comprehensive guides automatically.
+                AI-powered analytics for contributions, pull requests, issues, and repositories — all in one dashboard.
               </p>
             </div>
 
@@ -84,7 +84,7 @@ export default function Hero() {
                 <div className="flex-1">
                   <Input
                     type="url"
-                    placeholder="https://github.com/username/repository"
+                    placeholder="https://github.com/username or https://github.com/owner/repo"
                     value={repoUrl}
                     onChange={handleInputChange}
                     className="h-12"
@@ -100,7 +100,7 @@ export default function Hero() {
                   className="h-12 px-6"
                   disabled={loadingState.isLoading || !session?.user}
                 >
-                  {loadingState.isLoading ? 'Analyzing...' : (!session?.user ? 'Sign in to analyze' : 'Analyze Repo')}
+                  {loadingState.isLoading ? 'Analyzing...' : (!session?.user ? 'Sign in to analyze' : 'Analyze')}
                 </Button>
               </div>
               
@@ -118,7 +118,7 @@ export default function Hero() {
                 Sign in with GitHub
               </Button>
               <Button variant="ghost" onClick={handleTrySample}>
-                Try sample repo
+                Try sample data
               </Button>
             </div>
           </div>
@@ -133,11 +133,11 @@ export default function Hero() {
                 </div>
               </CardHeader>
               <CardContent className="font-mono text-sm space-y-2">
-                <div className="text-muted-foreground"># Generated Documentation</div>
-                <div className="text-primary">## Installation</div>
-                <div className="text-foreground">npm install my-package</div>
-                <div className="text-primary">## Usage</div>
-                <div className="text-foreground">import &#123; MyComponent &#125; from 'my-package';</div>
+                <div className="text-muted-foreground"># GitHub Insights</div>
+                <div className="text-primary">## Contributions</div>
+                <div className="text-foreground">Commits: 124 • Streak: 12 days</div>
+                <div className="text-primary">## Pull Requests</div>
+                <div className="text-foreground">Merged: 18 • Open: 3 • Avg review time: 1.2d</div>
               </CardContent>
             </Card>
           </div>

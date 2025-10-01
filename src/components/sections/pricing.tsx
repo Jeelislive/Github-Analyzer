@@ -59,7 +59,7 @@ export default function Pricing() {
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl md:text-5xl font-bold">Simple, transparent pricing</h2>
           <p className="text-xl text-muted-foreground max-w-4xl mx-auto">
-            Choose the plan that fits your needs. Upgrade or downgrade at any time.
+            Get actionable GitHub analytics. Choose a plan that fits your workflow.
           </p>
         </div>
 
@@ -104,20 +104,20 @@ export default function Pricing() {
 
         {/* Final CTA Section */}
         <div className="text-center mt-24 space-y-8">
-          <h3 className="text-3xl font-bold">Ready to generate amazing docs?</h3>
+          <h3 className="text-3xl font-bold">Ready to unlock your GitHub insights?</h3>
           <p className="text-xl text-muted-foreground">
-            Join thousands of developers who trust us with their documentation
+            Join thousands of developers who track contributions, PRs, and issues with clarity
           </p>
           <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <input 
                 type="url"
-                placeholder="https://github.com/username/repository"
+                placeholder="https://github.com/username or https://github.com/owner/repo"
                 className="w-full h-12 px-4 border rounded-md"
               />
             </div>
             <Button size="lg" className="h-12 px-8">
-              Analyze Repo
+              Analyze
             </Button>
           </div>
         </div>

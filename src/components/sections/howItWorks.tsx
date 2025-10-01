@@ -9,20 +9,20 @@ export default function HowItWorks() {
   const steps = [
     {
       number: "1",
-      title: "Clone & Parse",
-      description: "We securely clone your repository and analyze the code structure",
+      title: "Connect & Fetch",
+      description: "Securely connect GitHub to fetch your profile, repos, and activity",
       icon: GitBranch,
     },
     {
       number: "2", 
       title: "AI Analysis",
-      description: "Our AI understands your code and generates comprehensive documentation",
+      description: "Our AI analyzes contributions, PRs, issues, languages, and trends",
       icon: Brain,
     },
     {
       number: "3",
-      title: "Generate & Export", 
-      description: "Get beautiful docs ready to share with your team or community",
+      title: "Visualize & Share", 
+      description: "View dashboards and export reports to share with your team",
       icon: FileText,
     }
   ]
@@ -33,7 +33,7 @@ export default function HowItWorks() {
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl md:text-5xl font-bold">How it works</h2>
           <p className="text-xl text-muted-foreground max-w-4xl mx-auto">
-            Three simple steps to beautiful documentation
+            Three simple steps to actionable GitHub insights
           </p>
         </div>
 
@@ -90,24 +90,24 @@ export default function HowItWorks() {
         <div className="flex flex-col md:flex-row items-center justify-between space-y-8 md:space-y-0 md:space-x-8">
           {/* Input */}
           <div className="flex-1 space-y-4">
-            <h4 className="font-medium text-sm uppercase tracking-wide text-muted-foreground text-center">Your Repository</h4>
+            <h4 className="font-medium text-sm uppercase tracking-wide text-muted-foreground text-center">Your GitHub Data</h4>
             <div className="bg-muted/50 rounded-lg p-6 border">
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-4 h-4 rounded bg-blue-500"></div>
-                  <span className="text-sm font-mono">src/components/</span>
+                  <span className="text-sm font-mono">contributions/heatmap</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-4 h-4 rounded bg-green-500"></div>
-                  <span className="text-sm font-mono">README.md</span>
+                  <span className="text-sm font-mono">pull-requests</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-4 h-4 rounded bg-yellow-500"></div>
-                  <span className="text-sm font-mono">package.json</span>
+                  <span className="text-sm font-mono">issues</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-4 h-4 rounded bg-purple-500"></div>
-                  <span className="text-sm font-mono">types/index.ts</span>
+                  <span className="text-sm font-mono">top-repositories</span>
                 </div>
               </div>
             </div>
@@ -133,35 +133,35 @@ export default function HowItWorks() {
 
           {/* Output */}
           <div className="flex-1 space-y-4">
-            <h4 className="font-medium text-sm uppercase tracking-wide text-muted-foreground text-center">Generated Documentation</h4>
+            <h4 className="font-medium text-sm uppercase tracking-wide text-muted-foreground text-center">Insights & Reports</h4>
             <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-6 border border-primary/20">
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
                   <div>
-                    <p className="font-medium text-sm">Component Overview</p>
-                    <p className="text-xs text-muted-foreground">Complete API documentation with props and methods</p>
+                    <p className="font-medium text-sm">Contribution Trends</p>
+                    <p className="text-xs text-muted-foreground">Commits, streaks, busiest days and hours</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
                   <div>
-                    <p className="font-medium text-sm">Usage Examples</p>
-                    <p className="text-xs text-muted-foreground">Code snippets and integration guides</p>
+                    <p className="font-medium text-sm">PR Quality & Velocity</p>
+                    <p className="text-xs text-muted-foreground">Merged vs open, review time, revisions</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
                   <div>
-                    <p className="font-medium text-sm">Setup Guide</p>
-                    <p className="text-xs text-muted-foreground">Installation and configuration instructions</p>
+                    <p className="font-medium text-sm">Issue Resolution</p>
+                    <p className="text-xs text-muted-foreground">Time to close, labels, assignees</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
                   <div>
                     <p className="font-medium text-sm">Export Options</p>
-                    <p className="text-xs text-muted-foreground">PDF, Markdown, and web formats available</p>
+                    <p className="text-xs text-muted-foreground">PDF, CSV, and web reports available</p>
                   </div>
                 </div>
               </div>

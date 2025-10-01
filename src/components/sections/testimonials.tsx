@@ -1,19 +1,19 @@
 export default function Testimonials() {
   const testimonials = [
     {
-      quote: "This tool saved me hours of writing documentation. The AI actually understands our codebase!",
+      quote: "Clear visibility into my contributions and PRs helped me plan smarter and ship faster.",
       author: "John Smith",
       role: "Senior Developer at TechCorp",
       avatar: "JS"
     },
     {
-      quote: "Perfect for open source projects. Our contributors finally have clear documentation to follow.",
+      quote: "Perfect for open source. We track issues and reviews effortlessly across busy repos.",
       author: "Maria Johnson", 
       role: "OSS Maintainer",
       avatar: "MJ"
     },
     {
-      quote: "The quality of generated docs is impressive. It actually reads like human-written content.",
+      quote: "Actionable insights on velocity and quality improved our PR turnaround time by 30%.",
       author: "Alex Kim",
       role: "CTO at StartupXYZ", 
       avatar: "AK"
@@ -25,7 +25,7 @@ export default function Testimonials() {
       <div className="text-center space-y-4 mb-16">
         <h2 className="text-3xl md:text-4xl font-bold">Trusted by developers</h2>
         <p className="text-xl text-muted-foreground">
-          Join thousands of developers who love automated documentation
+          Join thousands of developers who rely on accurate GitHub analytics
         </p>
       </div>
 
