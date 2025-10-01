@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import CommunityPanel from '@/components/community/CommunityPanel'
 import { Brain } from 'lucide-react'
+import DotLottieIcon from '@/components/DotLottieIcon'
 import ContributionHeatmap, { type HeatmapDay } from '@/components/github/ContributionHeatmap'
 import { Calendar, Flame, GitCommit, GitPullRequest, MessageSquare, Sparkles, Star, GitFork, FolderGit2, Search } from 'lucide-react'
 import Sidebar from '@/components/dashboard/Sidebar'
@@ -146,7 +147,11 @@ export default function DashboardPage() {
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 else window.location.hash = 'community'
               }}
+              className="gap-2"
             >
+              <span className="relative inline-flex items-center justify-center h-5 w-5 overflow-hidden">
+                <DotLottieIcon src="/icons/community.lottie" size={28} className="scale-[1.8]" />
+              </span>
               Community
             </Button>
           </div>

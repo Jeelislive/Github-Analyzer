@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Github, Twitter, Linkedin } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import DotLottieIcon from '@/components/DotLottieIcon'
 
 export default function Footer() {
   return (
@@ -14,8 +15,8 @@ export default function Footer() {
         {/* Top row: brand + newsletter */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-8 border-b">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Github className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg">
+              <DotLottieIcon src="/icons/Purple%20Git%20Cat.json" size={22} />
             </div>
             <div>
               <div className="text-xl font-bold">GitHub Analyzer</div>

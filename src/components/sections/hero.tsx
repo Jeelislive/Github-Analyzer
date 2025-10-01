@@ -112,10 +112,15 @@ export default function Hero() {
               )}
             </form>
 
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
               <Button variant="outline" className="gap-2" onClick={() => signIn('github')}>
                 <Github className="h-4 w-4" />
                 Sign in with GitHub
+              </Button>
+              <Button variant="outline" size="icon" asChild aria-label="Open GitHub repository">
+                <a href="https://github.com/Jeelislive/Github-Analyzer" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                  <Github className="h-4 w-4" />
+                </a>
               </Button>
               <Button variant="ghost" onClick={handleTrySample}>
                 Try sample data

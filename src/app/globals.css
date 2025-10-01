@@ -31,6 +31,23 @@
     --chart-5: 27 87% 67%;
   }
 
+  /* Minimal smooth flame animation (SVG classes) */
+  @keyframes flameOuterWave {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-0.6px) scale(1.02); }
+  }
+  @keyframes flameInnerWave {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-0.4px) scale(1.015); }
+  }
+  @keyframes flameCorePulse {
+    0%, 100% { transform: scale(0.98); opacity: 0.55; }
+    50% { transform: scale(1.05); opacity: 0.75; }
+  }
+  .flame-outer { fill: #7C4DFF; animation: flameOuterWave 1.4s ease-in-out infinite; }
+  .flame-inner { fill: #B388FF; animation: flameInnerWave 1.4s ease-in-out infinite; }
+  .flame-core  { fill: rgba(124,77,255,0.5); animation: flameCorePulse 1.4s ease-in-out infinite; }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -72,5 +89,166 @@
 @layer utilities {
   .container {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Constant rotating outer ring for circular icons */
+  @keyframes spin360 {
+    to { transform: rotate(360deg); }
+  }
+  .circle-ring-spin {
+    position: relative;
+    border-radius: 9999px; /* fully rounded */
+  }
+  .circle-ring-spin::after {
+    content: "";
+    position: absolute;
+    inset: -2px; /* ring sits just outside */
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    border-top-color: hsl(var(--primary)); /* single running line */
+    animation: spin360 1s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Purple pulse ring animation utility (every 3 seconds) */
+  @keyframes ringPulse {
+    0% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45);
+    }
+    60% {
+      box-shadow: 0 0 0 10px hsl(var(--primary) / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+    }
+  }
+
+  .pulse-ring-3s {
+    animation: ringPulse 3s ease-out infinite;
+  }
+
+  /* Shape-following pulse using SVG drop-shadow so glow matches icon outline */
+  @keyframes iconPulse {
+    0% {
+      filter: drop-shadow(0 0 0 hsl(var(--primary) / 0.6));
+    }
+    50% {
+      filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.35));
+    }
+    100% {
+      filter: drop-shadow(0 0 0 hsl(var(--primary) / 0));
+    }
+  }
+
+  .icon-pulse-3s svg {
+    animation: iconPulse 3s ease-out infinite;
+  }
+
+  /* Purple flame flicker for brand icon */
+  @keyframes purpleFlameFlicker {
+    0% {
+      filter: drop-shadow(0 0 2px hsl(var(--primary) / 0.35)) drop-shadow(0 0 0 hsl(var(--primary) / 0.0));
+      transform: translateY(0) scale(1);
+    }
+    40% {
+      filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.55)) drop-shadow(0 -4px 12px hsl(var(--primary) / 0.25));
+      transform: translateY(-0.5px) scale(1.02);
+    }
+    70% {
+      filter: drop-shadow(0 0 12px hsl(var(--primary) / 0.6)) drop-shadow(0 -6px 16px hsl(var(--primary) / 0.3));
+      transform: translateY(0) scale(0.99);
+    }
+    100% {
+      filter: drop-shadow(0 0 6px hsl(var(--primary) / 0.45)) drop-shadow(0 -3px 10px hsl(var(--primary) / 0.2));
+      transform: translateY(0.3px) scale(1);
+    }
+  }
+
+  .brand-flame svg {
+    color: hsl(var(--primary));
+    animation: purpleFlameFlicker 1.2s ease-in-out infinite, flameWobble 2.2s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  /* Container layer for extra glow + subtle sparks */
+  .brand-flame-animated {
+    position: relative;
+    isolation: isolate;
+  }
+  .brand-flame-animated::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 9999px;
+    background: radial-gradient(closest-side, hsl(var(--primary) / 0.35), transparent 65%);
+    filter: blur(8px);
+    z-index: -1;
+    animation: flameGlow 1.2s ease-in-out infinite alternate;
+  }
+  .brand-flame-animated::after {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.6) 0%, transparent 65%);
+    filter: blur(1px);
+    opacity: 0.6;
+    animation: sparkRise 1.8s ease-in-out infinite;
+  }
+
+  @keyframes flameGlow {
+    from { opacity: 0.45; transform: scale(0.98); }
+    to   { opacity: 0.15; transform: scale(1.04); }
+  }
+  @keyframes flameWobble {
+    0%   { transform: rotate(-1deg) translateY(0); }
+    50%  { transform: rotate(1deg) translateY(-0.6px); }
+    100% { transform: rotate(-1deg) translateY(0); }
+  }
+  @keyframes sparkRise {
+    0%   { transform: translate(-50%, 0) scale(0.7); opacity: 0.0; }
+    20%  { opacity: 0.6; }
+    70%  { transform: translate(-50%, -6px) scale(1); opacity: 0.35; }
+    100% { transform: translate(-50%, -10px) scale(0.85); opacity: 0; }
+  }
+
+  /* Live flame effect on icon outline only (no background) */
+  @keyframes flameStroke {
+    0%   { stroke-width: 2px; }
+    30%  { stroke-width: 2.25px; }
+    55%  { stroke-width: 1.9px; }
+    80%  { stroke-width: 2.15px; }
+    100% { stroke-width: 2px; }
+  }
+  .brand-flame-live svg {
+    color: hsl(var(--primary));
+    animation: purpleFlameFlicker 1.15s ease-in-out infinite, flameStroke 0.95s ease-in-out infinite;
+    transform-origin: center;
+    /* Ensure stroke-driven icons react */
+    stroke: currentColor;
+  }
+
+  /* Static (non-animated) purple fire effect */
+  .brand-flame-static {
+    position: relative;
+    isolation: isolate;
+  }
+  .brand-flame-static::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 9999px;
+    background: radial-gradient(closest-side, hsl(var(--primary) / 0.35), transparent 65%);
+    filter: blur(8px);
+    z-index: -1;
+  }
+  .brand-flame-static svg {
+    color: hsl(var(--primary));
+    filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.55)) drop-shadow(0 -4px 12px hsl(var(--primary) / 0.25));
+    transform-origin: center;
   }
 }

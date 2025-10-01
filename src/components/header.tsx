@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdownMenu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import GithubStarButton from '@/components/GithubStarButton'
+import DotLottieIcon from '@/components/DotLottieIcon'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -52,9 +54,9 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="w-full px-4 md:px-6 flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Github className="h-5 w-5" />
-          </div>
+          <span className="flex h-8 w-8 items-center justify-center" aria-hidden="true">
+            <DotLottieIcon src="/icons/Purple%20Git%20Cat.json" size={26} />
+          </span>
           <span className="text-xl font-bold">GitHub Analyzer</span>
         </Link>
 
@@ -78,6 +80,8 @@ export default function Header() {
           {status === 'loading' ? (
             <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
           ) : session?.user ? (
+            <>
+            <GithubStarButton />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -135,8 +139,10 @@ export default function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </>
           ) : (
             <>
+              <GithubStarButton />
               <Link href="/auth">
                 <Button variant="outline" size="sm">
                   Sign In
@@ -215,6 +221,15 @@ export default function Header() {
                 </div>
               ) : (
                 <>
+                  <a
+                    href="https://github.com/Jeelislive/Github-Analyzer"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open GitHub repository"
+                    className="w-full flex items-center justify-center border rounded-md py-2 text-sm hover:bg-muted"
+                  >
+                    <Github className="h-4 w-4" />
+                  </a>
                   <Link href="/auth">
                     <Button variant="outline" size="sm" className="w-full">
                       Sign In
