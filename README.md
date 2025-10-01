@@ -1,252 +1,312 @@
 # GitHub Analyzer
 
+<div align="center">
+
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
-![Last Commit](https://img.shields.io/github/last-commit/jeelrupareliya/github-analyzer)
+![GitHub contributors](https://img.shields.io/github/contributors/Jeelislive/Github-Analyzer)
+![GitHub stars](https://img.shields.io/github/stars/Jeelislive/Github-Analyzer?style=social)
+![GitHub forks](https://img.shields.io/github/forks/Jeelislive/Github-Analyzer?style=social)
 
-A Next.js application that analyzes GitHub repositories and presents AI-powered insights, architecture visualizations, and project health metrics through a modern dashboard.
+**A Next.js application that analyzes GitHub repositories and presents AI-powered insights, architecture visualizations, and project health metrics through a modern dashboard.**
 
+[Features](#features) • [Getting Started](#getting-started) • [Documentation](#how-it-works) • [Contributing](#contributing) • [Community](#community)
 
+</div>
 
-![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1759304069/Screenshot_from_2025-10-01_13-02-08_afdxk1.png)
-![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1759304086/Screenshot_from_2025-10-01_13-03-07_m74vvw.png)
-![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908146/Screenshot_from_2025-09-26_13-49-33_fmn68w.png)
+---
 
+## 📸 Screenshots
 
-## Features
+<div align="center">
+  <img src="https://res.cloudinary.com/dupv4u12a/image/upload/v1759304069/Screenshot_from_2025-10-01_13-02-08_afdxk1.png" alt="Dashboard Overview" width="800"/>
+  <br/>
+  <em>AI-Powered Repository Analysis Dashboard</em>
+</div>
 
-- AI Insights Dashboard with multiple tabs (Overview, Team, Business, Recommendations)
-- Architecture analysis and visualization (Mermaid-based diagrams, dependency mapping)
-- GitHub OAuth authentication using NextAuth and Prisma
-- Postgres-backed persistence via Prisma ORM
-- Modern UI with Tailwind CSS and Radix UI primitives
-- Graceful fallback when AI key is missing (app still works with sample/fallback data)
+<details>
+<summary>View More Screenshots</summary>
+<br/>
+<div align="center">
+  <img src="https://res.cloudinary.com/dupv4u12a/image/upload/v1759304086/Screenshot_from_2025-10-01_13-03-07_m74vvw.png" alt="Analytics View" width="800"/>
+  <br/>
+  <em>Detailed Analytics and Insights</em>
+  <br/><br/>
+  <img src="https://res.cloudinary.com/dupv4u12a/image/upload/v1758908146/Screenshot_from_2025-09-26_13-49-33_fmn68w.png" alt="Repository Analyzer" width="800"/>
+  <br/>
+  <em>Repository Analysis Interface</em>
+</div>
+</details>
 
-## Tech Stack
+---
 
-- Framework: Next.js 15 (App Router)
-- Language: TypeScript
-- UI: Tailwind CSS, Radix UI, Lucide icons
-- Auth: NextAuth.js with Prisma adapter and GitHub provider
-- Database: PostgreSQL via Prisma
-- Charts/Visuals: Chart.js, react-chartjs-2, d3, mermaid
-- AI: Google Generative AI SDK (Gemini) [optional]
+## ✨ Features
 
-Key packages: `next`, `react`, `next-auth`, `@prisma/client`, `prisma`, `@octokit/rest`, `@google/generative-ai`, `d3`, `chart.js`, `mermaid`.
+- 🤖 **AI-Powered Insights** - Comprehensive dashboard with Overview, Team, Business, and Recommendations tabs
+- 🏗️ **Architecture Visualization** - Mermaid-based diagrams and dependency mapping
+- 🔐 **GitHub OAuth** - Secure authentication using NextAuth and Prisma
+- 💾 **PostgreSQL Database** - Persistent storage via Prisma ORM
+- 🎨 **Modern UI** - Beautiful interface with Tailwind CSS and Radix UI
+- 📊 **Analytics Dashboard** - Contribution heatmaps, streak tracking, and activity metrics
+- 🔄 **Graceful Fallback** - Works with sample data when AI key is not configured
 
-## Monorepo Layout
+---
 
-Project root: `github-analyzer/`
+## 🛠️ Tech Stack
 
-Important paths:
-- `src/app/` — Next.js app router pages and API routes
-- `src/components/` — UI and composite components
-  - `src/components/ui/ai-insights-dashboard/` — dashboard tabs including `OverviewTab.tsx`
-- `src/lib/` — libraries such as `auth.ts` (NextAuth options), analyzers, Prisma client
-- `prisma/` — Prisma schema and migrations
-- `public/` — static assets
+| Category | Technologies |
+|----------|-------------|
+| **Framework** | Next.js 15 (App Router) |
+| **Language** | TypeScript 5.x |
+| **UI/Styling** | Tailwind CSS, Radix UI, Lucide Icons |
+| **Authentication** | NextAuth.js with GitHub Provider |
+| **Database** | PostgreSQL, Prisma ORM |
+| **Visualization** | Chart.js, D3.js, Mermaid |
+| **AI** | Google Generative AI (Gemini) - Optional |
 
-## Prerequisites
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
 
 - Node.js 18.18+ (recommended 20+)
 - npm 9+ or pnpm/yarn
 - PostgreSQL 13+
-- A GitHub OAuth App (Client ID and Secret)
+- GitHub OAuth App (Client ID and Secret)
 
-## Environment Variables
+### Installation & Setup
 
-Create a `.env.local` file in the project root (`github-analyzer/.env.local`). The app uses NextAuth + Prisma and optionally Gemini AI. The code under `src/lib/auth.ts` expects the GitHub provider env variables as `GITHUB_ID` and `GITHUB_SECRET`.
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Jeelislive/Github-Analyzer.git
+   cd Github-Analyzer
+   ```
 
-Example:
-
-```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/github_analyzer"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-strong-random-secret"
-
-# GitHub OAuth (required)
-# Note: This repository expects GITHUB_ID and GITHUB_SECRET (see src/lib/auth.ts).
-GITHUB_ID="your-github-client-id"
-GITHUB_SECRET="your-github-client-secret"
-
-# Gemini AI (optional)
-GEMINI_API_KEY="your-gemini-api-key"
-```
-
-Migration tip: If you previously used `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (as seen in older docs), rename them to `GITHUB_ID` / `GITHUB_SECRET` to match the current implementation.
-
-GitHub OAuth configuration:
-- Homepage URL: `http://localhost:3000`
-- Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
-
-## Database Setup (Prisma)
-
-1. Install dependencies
+2. **Install dependencies**
    ```bash
    npm install
    ```
-2. Generate Prisma client
+
+3. **Set up environment variables**
+
+   Create a `.env.local` file in the project root:
+
+   ```bash
+   # Database
+   DATABASE_URL="postgresql://username:password@localhost:5432/github_analyzer"
+
+   # NextAuth
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="your-strong-random-secret"
+
+   # GitHub OAuth (required)
+   GITHUB_ID="your-github-client-id"
+   GITHUB_SECRET="your-github-client-secret"
+
+   # Gemini AI (optional)
+   GEMINI_API_KEY="your-gemini-api-key"
+   ```
+
+4. **Configure GitHub OAuth**
+   
+   Create a GitHub OAuth App at [GitHub Developer Settings](https://github.com/settings/applications/new):
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+   
+   Copy the Client ID and Secret to your `.env.local` file.
+
+5. **Set up the database**
    ```bash
    npx prisma generate
-   ```
-3. Apply migrations (or create an initial migration if needed)
-   ```bash
    npx prisma migrate dev
    ```
-   Alternatively, if you do not have migrations yet and want to push the current schema:
+
+6. **Run the development server**
    ```bash
-   npx prisma db push
+   npm run dev
    ```
 
-Ensure `DATABASE_URL` in `.env.local` points to a running Postgres database.
+7. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000) 🎉
 
-## Scripts
+---
 
-- `npm run dev` — Start development server (Turbopack)
-- `npm run build` — Build the application
-- `npm start` — Start the production server
-- `npm run lint` — Run ESLint
+## 📖 How It Works
 
-## Running Locally
+1. **Authentication** - Sign in with GitHub using NextAuth (configured in `src/lib/auth.ts`)
+2. **Repository Input** - Enter any GitHub repository URL on the homepage
+3. **AI Analysis** - The system analyzes code structure, dependencies, and metrics
+4. **Visualization** - View insights through an interactive dashboard with multiple tabs:
+   - **Overview**: Health scores, metrics, technologies, and project purpose
+   - **Team Insights**: Activity and collaboration patterns
+   - **Business**: Value and risk analysis
+   - **Recommendations**: Automated improvement suggestions
 
-1. Create `.env.local` with all required variables
-2. Ensure Postgres is running and accessible
-3. Run Prisma steps: `npx prisma generate` and `npx prisma migrate dev`
-4. Start the app: `npm run dev`
-5. Visit `http://localhost:3000`
+> **Note**: If `GEMINI_API_KEY` is not configured, the app uses fallback data to maintain functionality.
 
-## How It Works
+---
 
-- Authentication is configured in `src/lib/auth.ts` using NextAuth with the Prisma adapter and GitHub provider. The session strategy is JWT, and the GitHub access token is attached to the session token for downstream use.
-- The landing experience provides a repository input (see `src/components/sections/hero.tsx`). After GitHub sign-in, users can analyze a repository URL.
-- The AI Insights Dashboard (`src/components/ui/ai-insights-dashboard.tsx`) renders multiple tabs. The `OverviewTab.tsx` summarizes quality scores, metrics (lines of code, files), project purpose, main technologies, and more. Additional tabs provide team insights, business value, and recommendations.
-- Architecture analysis and diagrams are documented in `ARCHITECTURE_SETUP.md`. The analyzer builds component graphs, computes metrics, and renders Mermaid-based visualizations.
-
-## Minimal Usage Flow
-
-1. Sign in with GitHub at `/auth`.
-2. On the homepage, paste a repository URL and submit.
-3. Open the Dashboard to view:
-   - Overview: health score, metrics, technologies, purpose
-   - Team Insights: activity and collaboration (as available)
-   - Business: value and risk signals
-   - Recommendations: suggested improvements
-
-If `GEMINI_API_KEY` is not provided, the app uses safe fallbacks to keep the experience functional.
-
-## API Reference
-
-Public API routes are implemented using the Next.js App Router under `src/app/api/`. Key endpoints include:
-
-- `GET /api/auth/[...nextauth]` — NextAuth routes (GitHub OAuth; session, callbacks).
-- `POST /api/auth/register` — Optional registration helper for local flows.
-- `GET /api/analytics` — Aggregated analytics snapshot for dashboards.
-
-- GitHub data (used by dashboard and analytics pages):
-  - `GET /api/github/contributions?range=180d|365d`
-  - `GET /api/github/prs`
-  - `GET /api/github/issues`
-  - `GET /api/github/repos`
-  - `GET /api/github/activity?range=30d|180d`
-
-- Repository-centric analysis:
-  - `POST /api/analyze` — Standard analysis of a repository.
-  - `POST /api/analyze/enhanced` — Enhanced analysis (includes architecture insights and Gemini, if configured).
-  - `GET /api/repos` — List or search analyzed repos.
-  - `GET /api/repos/[repoId]` — Get details for a specific repo.
-  - `DELETE /api/repos/[repoId]/delete` — Remove a repository record.
-  - `GET /api/repos/[repoId]/architecture` — Architecture graph and metrics.
-  - `GET /api/repos/[repoId]/files/[fileId]` — File metadata.
-  - `GET /api/repos/files/[fileId]/content` — File content retrieval.
-
-Authentication: Most endpoints require a signed-in session (GitHub OAuth). The dashboard pages call the `/api/github/*` endpoints client-side and rely on the server to call the GitHub GraphQL/REST APIs using the authenticated token.
-
-Rate limits: Calls to GitHub APIs are subject to GitHub rate limits; some responses are cached and/or sampled to provide smooth UX.
-
-## Configuration
-
-Recommended configuration toggles (see `ARCHITECTURE_SETUP.md` for full details):
-
-- `analysisOptions.includeGeminiAnalysis` — Enable AI-powered insights when `GEMINI_API_KEY` is set.
-- `analysisOptions.maxFiles` / `maxCommits` — Control analysis scope.
-- `diagramOptions.diagramType` — `flowchart | graph | timeline | mindmap`.
-- `diagramOptions.layout` — `TB | TD | BT | RL | LR`.
-- `diagramOptions.theme` — `dark | default | forest | neutral`.
-
-## Configuration Notes
-
-- The codebase uses NextAuth v4 with JWT sessions and Prisma adapter. If you previously used different env var names for GitHub OAuth (e.g., `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`), ensure both are aligned. This repository expects `GITHUB_ID` and `GITHUB_SECRET`.
-- `next.config.ts` currently contains default configuration. Customize as needed for images, headers, or experimental flags.
-
-## Troubleshooting
-
-- Authentication callback error: confirm your GitHub OAuth app callback URL matches `http://localhost:3000/api/auth/callback/github` and that `GITHUB_ID/GITHUB_SECRET` are correct.
-- Database connection issues: verify `DATABASE_URL` and that your Postgres instance is reachable. Run `npx prisma migrate dev` again after schema changes.
-- Missing AI insights: confirm `GEMINI_API_KEY` is present. The app will still run with fallback data if omitted.
-- Build or type errors: run `npm run lint` and ensure Node.js version is compatible. Reinstall dependencies if necessary.
-
-FAQ
-
-- Q: Do I need a Gemini API key for the app to work?
-  - A: No. The app gracefully falls back to sample/derived data if `GEMINI_API_KEY` is not set.
-- Q: Which GitHub env vars does NextAuth use here?
-  - A: `GITHUB_ID` and `GITHUB_SECRET` as defined in `src/lib/auth.ts`.
-- Q: Does the analyzer support non-React projects?
-  - A: Yes. The architecture analyzer detects multiple ecosystems and languages; see `ARCHITECTURE_SETUP.md`.
-
-## Project Structure
+## 📂 Project Structure
 
 ```text
-github-analyzer/
-├─ src/
-│  ├─ app/                      # Routes and pages (App Router)
-│  ├─ components/
-│  │  ├─ sections/              # Landing sections (e.g., hero)
-│  │  └─ ui/ai-insights-dashboard/
-│  │     ├─ OverviewTab.tsx
-│  │     └─ ...
-│  └─ lib/
-│     ├─ auth.ts                # NextAuth config (GitHub provider)
-│     └─ prisma.ts              # Prisma client
-├─ prisma/
-│  ├─ schema.prisma             # Prisma schema
-│  └─ migrations/               # Prisma migrations
-├─ public/
-├─ next.config.ts
-├─ package.json
-└─ README.md
+Github-Analyzer/
+├── src/
+│   ├── app/                    # Next.js App Router pages & API routes
+│   ├── components/
+│   │   ├── ui/                 # Reusable UI components
+│   │   ├── dashboard/          # Dashboard-specific components
+│   │   └── sections/           # Landing page sections
+│   └── lib/
+│       ├── auth.ts             # NextAuth configuration
+│       └── prisma.ts           # Prisma client
+├── prisma/
+│   ├── schema.prisma           # Database schema
+│   └── migrations/             # Database migrations
+├── public/                     # Static assets & icons
+└── README.md
 ```
 
-## Contributing
+---
 
-- Use a feature branch workflow
-- Keep PRs focused and well described
+## 🔧 Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server with Turbopack |
+| `npm run build` | Build the application for production |
+| `npm start` | Start the production server |
+| `npm run lint` | Run ESLint checks |
+
+---
+
+## ❓ Troubleshooting
+
+<details>
+<summary><b>Authentication callback error</b></summary>
+<br/>
+Verify that your GitHub OAuth app callback URL matches <code>http://localhost:3000/api/auth/callback/github</code> and that <code>GITHUB_ID</code> and <code>GITHUB_SECRET</code> are correctly set in <code>.env.local</code>.
+</details>
+
+<details>
+<summary><b>Database connection issues</b></summary>
+<br/>
+Check that your <code>DATABASE_URL</code> is correct and PostgreSQL is running. Run <code>npx prisma migrate dev</code> to apply migrations.
+</details>
+
+<details>
+<summary><b>Missing AI insights</b></summary>
+<br/>
+The app works without <code>GEMINI_API_KEY</code> using fallback data. To enable AI features, get an API key from <a href="https://makersuite.google.com/app/apikey">Google AI Studio</a>.
+</details>
+
+<details>
+<summary><b>Build or type errors</b></summary>
+<br/>
+Run <code>npm run lint</code> and ensure you're using Node.js 18.18+. Try reinstalling dependencies with <code>npm install</code>.
+</details>
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+### Ways to Contribute
+
+- 🐛 **Report Bugs** - Use our [issue templates](.github/ISSUE_TEMPLATE/)
+- ✨ **Suggest Features** - Share your ideas for improvements
+- 📝 **Improve Documentation** - Help make our docs better
+- 🔧 **Submit Pull Requests** - Fix bugs or add new features
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run `npm run lint` to ensure code quality
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to your branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+### Guidelines
+
+- Keep PRs focused on a single feature or fix
 - Add tests or sample data where applicable
-- Run `npm run lint` before submitting
+- Update relevant documentation
+- Ensure `npm run lint` passes before submitting
+- For major changes (auth, database schema, analysis pipeline), include a migration plan
 
-If you plan to change authentication, database schema, or the analysis pipeline, include a migration plan and update relevant docs (`SETUP.md`, `ARCHITECTURE_SETUP.md`).
+---
 
-You can use the issue templates in `.github/ISSUE_TEMPLATE/` to file bugs and feature requests. Pull requests are welcome—please keep PRs focused, add tests or sample data when applicable, and ensure `npm run lint` passes.
+## 👥 Community
 
-## Security
+<div align="center">
 
-- Do not commit `.env*` files or secrets
-- Rotate OAuth credentials if exposed
-- Use strong `NEXTAUTH_SECRET` in production
+### Join Our Open Source Community! 🌟
 
-## License
+We believe in the power of open source and collaborative development. This project thrives because of amazing contributors like you!
 
-This project is licensed under the MIT License. See the [`LICENSE`](./LICENSE) file for details.
+[![Contributors](https://img.shields.io/github/contributors/Jeelislive/Github-Analyzer?style=for-the-badge)](https://github.com/Jeelislive/Github-Analyzer/graphs/contributors)
+[![Stargazers](https://img.shields.io/github/stars/Jeelislive/Github-Analyzer?style=for-the-badge)](https://github.com/Jeelislive/Github-Analyzer/stargazers)
+[![Forks](https://img.shields.io/github/forks/Jeelislive/Github-Analyzer?style=for-the-badge)](https://github.com/Jeelislive/Github-Analyzer/network/members)
+[![Issues](https://img.shields.io/github/issues/Jeelislive/Github-Analyzer?style=for-the-badge)](https://github.com/Jeelislive/Github-Analyzer/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/Jeelislive/Github-Analyzer?style=for-the-badge)](https://github.com/Jeelislive/Github-Analyzer/pulls)
 
-## Acknowledgements
+### 🎉 Thanks to All Contributors
 
-- GitHub REST/GraphQL APIs
-- Next.js, React, and TypeScript
-- NextAuth.js and Prisma
-- Chart.js, D3, Mermaid
-- Google Generative AI SDK (Gemini)
+<a href="https://github.com/Jeelislive/Github-Analyzer/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Jeelislive/Github-Analyzer" alt="Contributors" />
+</a>
+
+Made with ❤️ by developers, for developers
+
+**[⭐ Star this repo](https://github.com/Jeelislive/Github-Analyzer)** • **[🐛 Report Bug](https://github.com/Jeelislive/Github-Analyzer/issues)** • **[💡 Request Feature](https://github.com/Jeelislive/Github-Analyzer/issues)**
+
+</div>
+
+---
+
+## 🔒 Security
+
+- 🚫 Never commit `.env*` files or secrets to version control
+- 🔄 Rotate OAuth credentials immediately if exposed
+- 🔐 Use a strong, randomly generated `NEXTAUTH_SECRET` in production
+- 📋 Review the [Security Policy](SECURITY.md) for reporting vulnerabilities
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgements
+
+This project is built with amazing open-source technologies:
+
+- [Next.js](https://nextjs.org/) - React framework for production
+- [NextAuth.js](https://next-auth.js.org/) - Authentication for Next.js
+- [Prisma](https://www.prisma.io/) - Next-generation ORM
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Radix UI](https://www.radix-ui.com/) - Unstyled, accessible components
+- [Chart.js](https://www.chartjs.org/) - Simple yet flexible charting
+- [D3.js](https://d3js.org/) - Data visualization library
+- [Mermaid](https://mermaid.js.org/) - Diagram and flowchart generation
+- [Google Generative AI](https://ai.google.dev/) - Gemini AI SDK
+
+---
+
+<div align="center">
+
+### Built with 💙 by the open-source community
+
+If you find this project helpful, consider giving it a ⭐!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Jeelislive/Github-Analyzer&type=Date)](https://star-history.com/#Jeelislive/Github-Analyzer&Date)
+
+</div>
