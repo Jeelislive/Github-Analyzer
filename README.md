@@ -8,28 +8,12 @@
 
 A Next.js application that analyzes GitHub repositories and presents AI-powered insights, architecture visualizations, and project health metrics through a modern dashboard.
 
-## Table of Contents
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Monorepo Layout](#monorepo-layout)
-- [Prerequisites](#prerequisites)
-- [Environment Variables](#environment-variables)
-- [Database Setup (Prisma)](#database-setup-prisma)
-- [Scripts](#scripts)
-- [Running Locally](#running-locally)
-- [How It Works](#how-it-works)
-- [API Reference](#api-reference)
-- [Configuration](#configuration)
-- [Troubleshooting](#troubleshooting)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [Security](#security)
-- [License](#license)
 
-![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758776790/Screenshot_from_2025-09-25_10-33-41_xqh2dz.png)
+![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1759304069/Screenshot_from_2025-10-01_13-02-08_afdxk1.png)
+![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1759304086/Screenshot_from_2025-10-01_13-03-07_m74vvw.png)
 ![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908146/Screenshot_from_2025-09-26_13-49-33_fmn68w.png)
-![Screenshot](https://res.cloudinary.com/dupv4u12a/image/upload/v1758908437/Screenshot_from_2025-09-26_14-09-34_gjsxvm.png)
+
 
 ## Features
 
