@@ -150,7 +150,7 @@ export default function DashboardPage() {
               className="gap-2"
             >
               <span className="relative inline-flex items-center justify-center h-5 w-5 overflow-hidden">
-                <DotLottieIcon src="/icons/community.lottie" size={28} className="scale-[1.8]" />
+                <DotLottieIcon src="/icons/community.lottie" size={28 } className="scale-[1.8]" />
               </span>
               Community
             </Button>
