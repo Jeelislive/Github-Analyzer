@@ -9,3 +9,4 @@ Feature	Description
 🔗 Integrations	GitHub, Discord, Twitter/X, Slack, etc.
 📅 Events	Weekly community calls, open-source sprints, Hacktoberfest events
 🧠 Resources	Open-source guides, contribution tutorials, contributor handbook
+=> add community sections where each user can talk directly with the other oss developer
