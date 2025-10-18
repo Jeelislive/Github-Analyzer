@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, getGitHubToken } from '@/lib/auth'
 import { getOctokit, wait } from '@/lib/octokit'
 import { getCache, setCache } from '@/lib/serverCache'
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // @ts-expect-error injected by session callback
-    const accessToken: string | undefined = session.accessToken
-    if (!accessToken) return NextResponse.json({ error: 'Missing GitHub access token' }, { status: 400 })
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const accessToken = await getGitHubToken(session.user.id)
+    if (!accessToken) {
+      return NextResponse.json({ 
+        error: 'GitHub access token not found or expired. Please sign in again.' 
+      }, { status: 401 })
+    }
 
     const octokit = getOctokit(accessToken)
     const { data: me } = await octokit.rest.users.getAuthenticated()

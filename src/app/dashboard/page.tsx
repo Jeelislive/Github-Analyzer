@@ -167,7 +167,7 @@ export default function DashboardPage() {
             <MiniKPI
               title="Contributions (30d)"
               value={(() => {
-                if (!contriData?.calendar?.days) return '—'
+                if (!contriData?.calendar?.days) return 0
                 const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
                 const last30 = days.slice(-30)
                 return last30.reduce((s,d)=>s+d.contributionCount,0)
@@ -190,36 +190,39 @@ export default function DashboardPage() {
                 return last30
               })()}
               stroke="#7c3aed"
+              icon={<GitCommit className="w-4 h-4" />}
             />
 
-            {/* PRs sparkline (approx from recent updates) */}
+            {/* PRs sparkline */}
             <MiniKPI
-              title="PRs updated (sample)"
-              value={prs ? prs.totals.total : '—'}
+              title="Pull Requests"
+              value={prs ? prs.totals.total : 0}
               delta={prs ? { value: Math.min(99, Math.round((prs.totals.merged / Math.max(1, prs.totals.total))*100)), positive: true } : undefined}
               series={(() => {
                 if (!prs?.recent) return []
                 const counts: Record<string, number> = {}
                 prs.recent.forEach((p:any)=>{ const d = new Date(p.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
                 const keys = Object.keys(counts).sort()
-                return keys.slice(-30).map(k=>counts[k])
+                return keys.slice(-30).map(k=>counts[k] || 0)
               })()}
               stroke="#10b981"
+              icon={<GitPullRequest className="w-4 h-4" />}
             />
 
-            {/* Issues sparkline (approx from recent updates) */}
+            {/* Issues sparkline */}
             <MiniKPI
-              title="Issues updated (sample)"
-              value={issues ? issues.totals.total : '—'}
+              title="Issues"
+              value={issues ? issues.totals.total : 0}
               delta={issues ? { value: Math.min(99, Math.round((issues.totals.closed / Math.max(1, issues.totals.total))*100)), positive: true } : undefined}
               series={(() => {
                 if (!issues?.recent) return []
                 const counts: Record<string, number> = {}
                 issues.recent.forEach((i:any)=>{ const d = new Date(i.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
                 const keys = Object.keys(counts).sort()
-                return keys.slice(-30).map(k=>counts[k])
+                return keys.slice(-30).map(k=>counts[k] || 0)
               })()}
               stroke="#6366f1"
+              icon={<MessageSquare className="w-4 h-4" />}
             />
           </div>
 
