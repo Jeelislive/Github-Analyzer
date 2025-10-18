@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Github, Menu, X, User, Settings, LogOut, CreditCard, BookOpen } from 'lucide-react'
+import { Github, Menu, X, User, LogOut, BookOpen } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -109,18 +109,6 @@ export default function Header() {
                   <Link href="/dashboard" className="w-full cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Dashboard</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="w-full cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Profile Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/billing" className="w-full cursor-pointer">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    <span>Billing</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

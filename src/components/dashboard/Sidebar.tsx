@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { usePathname } from 'next/navigation'
-import { Home, BarChart3, GitPullRequest, MessageSquare, Settings, LogOut, Target } from 'lucide-react'
+import { Home, BarChart3, GitPullRequest, MessageSquare, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function Sidebar() {
@@ -35,10 +35,6 @@ export default function Sidebar() {
           </button>
         ))}
       </nav>
-      <div className="p-3 border-t flex items-center justify-between text-gray-600">
-        <button className="flex items-center gap-2 hover:text-gray-900"><Settings className="w-4 h-4"/> Settings</button>
-        <button className="flex items-center gap-2 hover:text-gray-900"><LogOut className="w-4 h-4"/> Log out</button>
-      </div>
     </aside>
   )
 }
