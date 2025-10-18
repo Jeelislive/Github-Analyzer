@@ -1,9 +1,12 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { FolderGit2, Star, GitFork } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Star, GitFork, Archive, ExternalLink, FolderGit2 } from 'lucide-react'
+import LoadingState from '@/components/ui/LoadingState'
+import { useApiCache } from '@/hooks/useApiCache'
+import { useSectionCache } from '@/hooks/useSectionCache'
 import { timeAgo } from '@/lib/format'
 
 interface ReposResponse {
@@ -12,9 +15,9 @@ interface ReposResponse {
 }
 
 export default function ReposPage() {
-  const [data, setData] = useState<ReposResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data, loading, error } = useApiCache<ReposResponse>('/api/github/repos', {
+    cacheKey: 'repos-summary'
+  })
   type Section = 'all' | 'sources' | 'forks' | 'archived'
   type Item = {
     id: number
@@ -37,82 +40,7 @@ export default function ReposPage() {
   })
   const [activeTab, setActiveTab] = useState<Section>('all')
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    
-    // Check cache first
-    const cacheKey = 'repos-summary'
-    const cached = sessionStorage.getItem(cacheKey)
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
-    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
-    
-    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-      try {
-        const cachedData = JSON.parse(cached)
-        if (!cancelled) {
-          setData(cachedData)
-          setLoading(false)
-        }
-        return
-      } catch (e) {
-        // Clear invalid cache
-        sessionStorage.removeItem(cacheKey)
-        sessionStorage.removeItem(`${cacheKey}-timestamp`)
-      }
-    }
-    
-    fetch('/api/github/repos')
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => {
-        if (!cancelled) {
-          setData(j)
-          // Cache the response
-          sessionStorage.setItem(cacheKey, JSON.stringify(j))
-          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-        }
-      })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Failed to load repos'))
-      .finally(() => !cancelled && setLoading(false))
-    return () => { cancelled = true }
-  }, [])
-
-  const loadSection = async (section: Section) => {
-    if (sections[section].loaded || sections[section].loading) return
-    
-    // Check cache first
-    const cacheKey = `repos-section-${section}`
-    const cached = sessionStorage.getItem(cacheKey)
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
-    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
-    
-    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-      try {
-        const cachedData = JSON.parse(cached)
-        setSections((s) => ({ ...s, [section]: { items: cachedData.items, loaded: true, loading: false } }))
-        return
-      } catch (e) {
-        // Clear invalid cache
-        sessionStorage.removeItem(cacheKey)
-        sessionStorage.removeItem(`${cacheKey}-timestamp`)
-      }
-    }
-    
-    setSections((s) => ({ ...s, [section]: { ...s[section], loading: true } }))
-    try {
-      const res = await fetch(`/api/github/repos?section=${section}`)
-      if (!res.ok) throw new Error(await res.text())
-      const json: { section: Section; total: number; items: Item[] } = await res.json()
-      
-      // Cache the response
-      sessionStorage.setItem(cacheKey, JSON.stringify(json))
-      sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-      
-      setSections((s) => ({ ...s, [section]: { items: json.items, loaded: true, loading: false } }))
-    } catch {
-      setSections((s) => ({ ...s, [section]: { ...s[section], loading: false } }))
-    }
-  }
+  const { loadSection } = useSectionCache(sections, setSections, '/api/github/repos')
   useEffect(() => {
     loadSection('all')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,7 +50,7 @@ export default function ReposPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
-  if (loading) return <div className="p-6">Loading…</div>
+  if (loading) return <div className="p-6"><LoadingState variant="cards" count={6} /></div>
   if (error) return <div className="p-6 text-red-600">{error}</div>
   if (!data) return null
 

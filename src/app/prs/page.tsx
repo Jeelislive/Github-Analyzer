@@ -5,6 +5,9 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { GitPullRequest, Clock, ExternalLink, GitMerge } from 'lucide-react'
 import AppShell from '@/components/dashboard/AppShell'
+import LoadingState from '@/components/ui/LoadingState'
+import { useApiCache } from '@/hooks/useApiCache'
+import { useSectionCache } from '@/hooks/useSectionCache'
 import { repoFrom, timeAgo } from '@/lib/format'
 import PRStatus from '@/components/github/PRStatus'
 
@@ -14,112 +17,21 @@ interface PRResponse {
 }
 
 export default function PRsPage() {
-  const [data, setData] = useState<PRResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data, loading, error } = useApiCache<PRResponse>('/api/github/prs', {
+    cacheKey: 'prs-summary'
+  })
+  
   type Section = 'all' | 'open' | 'merged' | 'closed'
   type Item = { id: number; number: number; title: string; state: 'open' | 'closed'; merged: boolean; html_url: string; repository_url: string; updated_at: string }
-  const [sections, setSections] = useState<Record<Section, { items: Item[]; page: number; total: number; loading: boolean }>>({
-    all: { items: [], page: 0, total: 0, loading: false },
-    open: { items: [], page: 0, total: 0, loading: false },
-    merged: { items: [], page: 0, total: 0, loading: false },
-    closed: { items: [], page: 0, total: 0, loading: false },
+  const [sections, setSections] = useState<Record<Section, { items: Item[]; page?: number; total?: number; loaded?: boolean; loading: boolean }>>({
+    all: { items: [], page: 0, total: 0, loaded: false, loading: false },
+    open: { items: [], page: 0, total: 0, loaded: false, loading: false },
+    merged: { items: [], page: 0, total: 0, loaded: false, loading: false },
+    closed: { items: [], page: 0, total: 0, loaded: false, loading: false },
   })
   const [activeTab, setActiveTab] = useState<Section>('all')
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    
-    // Check cache first
-    const cacheKey = 'prs-summary'
-    const cached = sessionStorage.getItem(cacheKey)
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
-    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
-    
-    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-      try {
-        const cachedData = JSON.parse(cached)
-        if (!cancelled) {
-          setData(cachedData)
-          setLoading(false)
-        }
-        return
-      } catch (e) {
-        // Clear invalid cache
-        sessionStorage.removeItem(cacheKey)
-        sessionStorage.removeItem(`${cacheKey}-timestamp`)
-      }
-    }
-    
-    fetch('/api/github/prs')
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => {
-        if (!cancelled) {
-          setData(j)
-          // Cache the response
-          sessionStorage.setItem(cacheKey, JSON.stringify(j))
-          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-        }
-      })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Failed to load PRs'))
-      .finally(() => !cancelled && setLoading(false))
-    return () => { cancelled = true }
-  }, [])
-
-  // Section loader with pagination and caching
-  const loadSection = async (section: Section) => {
-    setSections((s) => ({ ...s, [section]: { ...s[section], loading: true } }))
-    
-    // Check cache first
-    const cacheKey = `prs-section-${section}`
-    const cached = sessionStorage.getItem(cacheKey)
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
-    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
-    
-    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-      try {
-        const cachedData = JSON.parse(cached)
-        setSections((s) => ({
-          ...s,
-          [section]: {
-            items: cachedData.items,
-            page: 1,
-            total: cachedData.total,
-            loading: false,
-          },
-        }))
-        return
-      } catch (e) {
-        // Clear invalid cache
-        sessionStorage.removeItem(cacheKey)
-        sessionStorage.removeItem(`${cacheKey}-timestamp`)
-      }
-    }
-    
-    try {
-      const res = await fetch(`/api/github/prs?section=${section}`)
-      if (!res.ok) throw new Error(await res.text())
-      const json: { section: Section; total: number; items: Item[] } = await res.json()
-      
-      // Cache the response
-      sessionStorage.setItem(cacheKey, JSON.stringify(json))
-      sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-      
-      setSections((s) => ({
-        ...s,
-        [section]: {
-          items: json.items,
-          page: 1,
-          total: json.total,
-          loading: false,
-        },
-      }))
-    } catch (e) {
-      setSections((s) => ({ ...s, [section]: { ...s[section], loading: false } }))
-      // swallow, UI already has page content
-    }
-  }
+  const { loadSection } = useSectionCache(sections, setSections, '/api/github/prs')
 
   // Initial load only for default tab
   useEffect(() => {
@@ -130,7 +42,7 @@ export default function PRsPage() {
   // Load on tab change if not yet loaded
   useEffect(() => {
     const s = sections[activeTab]
-    if (s.page === 0 && !s.loading) {
+    if (!s.loaded && !s.loading) {
       loadSection(activeTab)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,7 +52,7 @@ export default function PRsPage() {
     return (
       <AppShell>
         <div className="w-full px-6 py-6">
-          {loading && <div className="text-gray-600">Loading…</div>}
+          {loading && <LoadingState variant="page" />}
           {error && <div className="text-red-600">{error}</div>}
         </div>
       </AppShell>
