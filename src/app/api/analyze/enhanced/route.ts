@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized - Please sign in" },
         { status: 401 }
       )
     }
@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract owner and repo from URL
     const urlMatch = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/)
     if (!urlMatch) {
       return NextResponse.json(
@@ -45,7 +44,6 @@ export async function POST(request: NextRequest) {
     const [, owner, repoName] = urlMatch
     console.log(`🚀 Starting enhanced analysis for ${owner}/${repoName}`)
 
-    // Set default options for comprehensive analysis
     const analysisOptions = {
       includeFileContent: true,
       includeCommitHistory: true,
@@ -55,7 +53,6 @@ export async function POST(request: NextRequest) {
       ...options
     }
 
-    // Perform enhanced analysis with Gemini AI
     const enhancedData = await enhancedGitHubAnalyzer.analyzeRepository(
       owner, 
       repoName, 
@@ -63,8 +60,6 @@ export async function POST(request: NextRequest) {
     )
 
     console.log(`✅ Enhanced analysis completed for ${owner}/${repoName}`)
-    
-    // Sanitize data to remove null bytes and other problematic characters
     const sanitizeData = (data: any): any => {
       if (data === null || data === undefined) return null
       if (typeof data === 'string') {
@@ -85,10 +80,7 @@ export async function POST(request: NextRequest) {
     
     const sanitizedData = sanitizeData(enhancedData)
     
-    // Store the enhanced data in our database
     const { prisma } = await import('@/lib/prisma')
-    
-    // Create or update repository record using AnalyzedRepo model
     const repository = await prisma.analyzedRepo.upsert({
       where: {
         userId_owner_repoName: {

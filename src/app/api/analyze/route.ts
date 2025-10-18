@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized - Please sign in" },
         { status: 401 }
       )
     }
@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { repoUrl } = analyzeSchema.parse(body)
 
-    // Extract owner and repo name from URL
     const urlPattern = /github\.com\/([^\/]+)\/([^\/]+)/
     const match = repoUrl.match(urlPattern)
     
@@ -36,8 +35,6 @@ export async function POST(request: NextRequest) {
 
     const [, owner, repoName] = match
     const cleanRepoName = repoName.replace(/\.git$/, '')
-
-    // Check if repository is already being analyzed or exists
     const existingRepo = await prisma.analyzedRepo.findUnique({
       where: {
         userId_owner_repoName: {
@@ -56,15 +53,12 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      // If analysis failed or completed, we can re-analyze
       if (existingRepo.analysisStatus === "failed" || existingRepo.analysisStatus === "completed") {
-        // Update status to analyzing and trigger re-analysis
         await prisma.analyzedRepo.update({
           where: { id: existingRepo.id },
           data: { analysisStatus: "analyzing", updatedAt: new Date() }
         })
         
-        // Trigger background analysis
         analyzeRepository(existingRepo.id, owner, cleanRepoName, session.user.id)
           .catch(console.error)
         
@@ -76,7 +70,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new repository entry
     const newRepo = await prisma.analyzedRepo.create({
       data: {
         userId: session.user.id,
@@ -87,7 +80,6 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Trigger background analysis
     analyzeRepository(newRepo.id, owner, cleanRepoName, session.user.id)
       .catch(console.error)
 
@@ -102,7 +94,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.errors[0].message },
+        { error: error.issues[0].message },
         { status: 400 }
       )
     }

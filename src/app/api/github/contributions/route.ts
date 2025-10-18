@@ -1,8 +1,6 @@
-'use server'
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, getGitHubToken } from '@/lib/auth'
 import { Octokit } from '@octokit/rest'
 import { githubGraphQL, CONTRIBUTIONS_QUERY } from '@/lib/githubGraphql'
 import { getCache, setCache } from '@/lib/serverCache'
@@ -42,21 +40,21 @@ function computeStreaks(days: { date: string; contributionCount: number }[]) {
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // @ts-expect-error injected via session callback in auth.ts
-    const accessToken: string | undefined = session.accessToken
+    const accessToken = await getGitHubToken(session.user.id)
     if (!accessToken) {
-      return NextResponse.json({ error: 'Missing GitHub access token' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'GitHub access token not found or expired. Please sign in again.' 
+      }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
     const loginParam = searchParams.get('login') || undefined
-    const range = searchParams.get('range') || '365d' // e.g. '30d', '90d', '365d'
+    const range = searchParams.get('range') || '365d'
 
-    // Determine from/to dates
     const now = new Date()
     const to = startOfDayISO(now)
     let days = 365
@@ -64,7 +62,6 @@ export async function GET(req: NextRequest) {
     if (match) days = Math.max(1, parseInt(match[1], 10))
     const from = startOfDayISO(addDays(now, -days))
 
-    // Determine target login
     let login = loginParam
     if (!login) {
       const octokit = new Octokit({ auth: accessToken })
