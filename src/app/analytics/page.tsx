@@ -2,7 +2,8 @@
 
 import React, { useMemo } from 'react'
 import { Card } from '@/components/ui/card'
-import PageLayout from '@/components/layout/PageLayout'
+import AppShell from '@/components/dashboard/AppShell'
+import LoadingState from '@/components/ui/LoadingState'
 import { useMultiApiCache } from '@/hooks/useApiCache'
 import LineChartJS from '@/components/charts/LineChartJS'
 import GaugeChartJS from '@/components/charts/GaugeChartJS'
@@ -108,30 +109,7 @@ export default function AnalyticsPage() {
     return (
       <AppShell>
         <div className="w-full px-6 py-6">
-          {loading && (
-            <div className="space-y-6 animate-pulse">
-              <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
-              <div className="p-4 border rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
-                <div className="h-64 bg-gray-200 rounded"></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="p-4 border rounded-lg">
-                    <div className="h-32 bg-gray-200 rounded"></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="p-4 border rounded-lg">
-                    <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
-                    <div className="h-48 bg-gray-200 rounded"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {loading && <LoadingState variant="analytics" />}
           {error && <div className="text-red-600">{error}</div>}
         </div>
       </AppShell>
@@ -140,8 +118,17 @@ export default function AnalyticsPage() {
 
   return (
     <AppShell>
-      <div className="w-full px-6 py-6 space-y-6">
-        {/* PRs vs Issues (30d) */}
+      <div className="w-full px-6 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics</h1>
+            <p className="text-gray-600">Comprehensive insights into your GitHub activity</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* PRs vs Issues (30d) */}
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="font-semibold">PRs vs Issues (30d)</div>
@@ -187,6 +174,7 @@ export default function AnalyticsPage() {
               series={stacked.series.map((s: any) => ({ label: s.name, color: s.color, data: s.values }))}
             />
           </Card>
+        </div>
         </div>
       </div>
     </AppShell>
