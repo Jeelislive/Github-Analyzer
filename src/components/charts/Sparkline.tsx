@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from 'react'
+import React, { useMemo, memo } from 'react'
 
 type Props = {
   data: number[]
@@ -12,7 +12,7 @@ type Props = {
   showDots?: boolean
 }
 
-export default function Sparkline({ 
+const Sparkline = memo(function Sparkline({ 
   data, 
   width = 140, 
   height = 40, 
@@ -103,4 +103,6 @@ export default function Sparkline({
       ))}
     </svg>
   )
-}
+})
+
+export default Sparkline

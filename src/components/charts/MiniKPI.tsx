@@ -1,25 +1,35 @@
 "use client"
 
-import React from 'react'
+import React, { memo, useMemo } from 'react'
 import Sparkline from './Sparkline'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 
-export default function MiniKPI({
-  title,
-  value,
-  delta,
-  stroke = '#6d28d9',
-  series,
-  icon,
-}: {
+interface MiniKPIProps {
   title: string
   value: string | number
   delta?: { value: number; positive?: boolean }
   stroke?: string
   series: number[]
   icon?: React.ReactNode
-}) {
-  const hasData = series && series.length > 0 && series.some(v => v > 0)
+}
+
+const MiniKPI = memo(function MiniKPI({
+  title,
+  value,
+  delta,
+  stroke = '#6d28d9',
+  series,
+  icon,
+}: MiniKPIProps) {
+  const hasData = useMemo(() => 
+    series && series.length > 0 && series.some(v => v > 0), 
+    [series]
+  )
+  
+  const formattedValue = useMemo(() => 
+    typeof value === 'number' ? value.toLocaleString() : value, 
+    [value]
+  )
   
   return (
     <div className="group relative p-5 rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 hover:shadow-lg hover:shadow-gray-100/50 transition-all duration-300 hover:border-gray-300">
@@ -51,7 +61,7 @@ export default function MiniKPI({
       <div className="flex items-end justify-between">
         <div className="flex items-baseline gap-3">
           <div className="text-2xl font-bold text-gray-900">
-            {typeof value === 'number' ? value.toLocaleString() : value}
+            {formattedValue}
           </div>
           {delta && (
             <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
@@ -85,4 +95,6 @@ export default function MiniKPI({
       )}
     </div>
   )
-}
+})
+
+export default MiniKPI

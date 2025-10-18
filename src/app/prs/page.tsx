@@ -30,21 +30,82 @@ export default function PRsPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    
+    // Check cache first
+    const cacheKey = 'prs-summary'
+    const cached = sessionStorage.getItem(cacheKey)
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+    
+    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+      try {
+        const cachedData = JSON.parse(cached)
+        if (!cancelled) {
+          setData(cachedData)
+          setLoading(false)
+        }
+        return
+      } catch (e) {
+        // Clear invalid cache
+        sessionStorage.removeItem(cacheKey)
+        sessionStorage.removeItem(`${cacheKey}-timestamp`)
+      }
+    }
+    
     fetch('/api/github/prs')
       .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setData(j))
-      .catch((e) => !cancelled && setError(e?.message || 'Failed to load PRs'))
+      .then((j) => {
+        if (!cancelled) {
+          setData(j)
+          // Cache the response
+          sessionStorage.setItem(cacheKey, JSON.stringify(j))
+          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+        }
+      })
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Failed to load PRs'))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
   }, [])
 
-  // Section loader with pagination
+  // Section loader with pagination and caching
   const loadSection = async (section: Section) => {
     setSections((s) => ({ ...s, [section]: { ...s[section], loading: true } }))
+    
+    // Check cache first
+    const cacheKey = `prs-section-${section}`
+    const cached = sessionStorage.getItem(cacheKey)
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+    
+    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+      try {
+        const cachedData = JSON.parse(cached)
+        setSections((s) => ({
+          ...s,
+          [section]: {
+            items: cachedData.items,
+            page: 1,
+            total: cachedData.total,
+            loading: false,
+          },
+        }))
+        return
+      } catch (e) {
+        // Clear invalid cache
+        sessionStorage.removeItem(cacheKey)
+        sessionStorage.removeItem(`${cacheKey}-timestamp`)
+      }
+    }
+    
     try {
       const res = await fetch(`/api/github/prs?section=${section}`)
       if (!res.ok) throw new Error(await res.text())
       const json: { section: Section; total: number; items: Item[] } = await res.json()
+      
+      // Cache the response
+      sessionStorage.setItem(cacheKey, JSON.stringify(json))
+      sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+      
       setSections((s) => ({
         ...s,
         [section]: {

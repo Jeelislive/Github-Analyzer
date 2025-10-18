@@ -19,10 +19,39 @@ export default function IssuesPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    
+    // Check cache first
+    const cacheKey = 'issues-summary'
+    const cached = sessionStorage.getItem(cacheKey)
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+    
+    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+      try {
+        const cachedData = JSON.parse(cached)
+        if (!cancelled) {
+          setData(cachedData)
+          setLoading(false)
+        }
+        return
+      } catch (e) {
+        // Clear invalid cache
+        sessionStorage.removeItem(cacheKey)
+        sessionStorage.removeItem(`${cacheKey}-timestamp`)
+      }
+    }
+    
     fetch('/api/github/issues')
       .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setData(j))
-      .catch((e) => !cancelled && setError(e?.message || 'Failed to load issues'))
+      .then((j) => {
+        if (!cancelled) {
+          setData(j)
+          // Cache the response
+          sessionStorage.setItem(cacheKey, JSON.stringify(j))
+          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+        }
+      })
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Failed to load issues'))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
   }, [])
@@ -31,7 +60,25 @@ export default function IssuesPage() {
     return (
       <AppShell>
         <div className="w-full px-6 py-6">
-          {loading && <div className="text-gray-600">Loading…</div>}
+          {loading && (
+            <div className="animate-pulse">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-64"></div>
+                </div>
+                <div className="h-6 bg-gray-200 rounded w-16"></div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="p-4 border rounded-lg">
+                    <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {error && <div className="text-red-600">{error}</div>}
         </div>
       </AppShell>

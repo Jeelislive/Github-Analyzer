@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -51,8 +51,8 @@ export default function DashboardPage() {
   }>(null)
 
   // Deterministic formatters to avoid locale-based hydration mismatches
-  const numberFormatter = new Intl.NumberFormat('en-US')
-  const formatDateUTC = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC' })
+  const numberFormatter = useMemo(() => new Intl.NumberFormat('en-US'), [])
+  const formatDateUTC = useCallback((iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC' }), [])
 
   // PRs
   const [prs, setPrs] = useState<null | { totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }, recent: any[] }>(null)
@@ -75,35 +75,78 @@ export default function DashboardPage() {
     let cancelled = false
     if (session?.user) {
       setContriLoading(true)
+      
+      const cacheKey = `contributions-${session.user.id}-365d`
+      const cached = localStorage.getItem(cacheKey)
+      const cacheTimestamp = localStorage.getItem(`${cacheKey}-timestamp`)
+      const cacheExpiry = 10 * 60 * 1000 // 10 minutes
+      
+      if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+        try {
+          const cachedData = JSON.parse(cached)
+          if (!cancelled) {
+            setContriData(cachedData)
+            setContriLoading(false)
+          }
+          return
+        } catch (e) {
+          localStorage.removeItem(cacheKey)
+          localStorage.removeItem(`${cacheKey}-timestamp`)
+        }
+      }
+      
       fetch('/api/github/contributions?range=365d')
         .then(async (res) => {
           if (!res.ok) throw new Error(await res.text())
           return res.json()
         })
         .then((json) => {
-          if (!cancelled) setContriData(json)
+          if (!cancelled) {
+            setContriData(json)
+            localStorage.setItem(cacheKey, JSON.stringify(json))
+            localStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+          }
         })
         .catch((e) => {
-          if (!cancelled) setContriError(e?.message || 'Failed to load contributions')
+          if (!cancelled) setContriError(e instanceof Error ? e.message : 'Failed to load contributions')
         })
         .finally(() => {
           if (!cancelled) setContriLoading(false)
         })
-      // PRs
-      fetch('/api/github/prs')
-        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-        .then((j) => !cancelled && setPrs(j))
-        .catch((e) => !cancelled && setPrsErr(e?.message || 'Failed to load PRs'))
-      // Issues
-      fetch('/api/github/issues')
-        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-        .then((j) => !cancelled && setIssues(j))
-        .catch((e) => !cancelled && setIssuesErr(e?.message || 'Failed to load issues'))
-      // Repos
-      fetch('/api/github/repos')
-        .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-        .then((j) => !cancelled && setRepos(j))
-        .catch((e) => !cancelled && setReposErr(e?.message || 'Failed to load repos'))
+      const fetchWithCache = async (endpoint: string, setter: Function, errorSetter: Function) => {
+        const cacheKey = `${endpoint.replace('/api/github/', '')}-${session.user.id}`
+        const cached = sessionStorage.getItem(cacheKey)
+        const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+        const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+        
+        if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+          try {
+            const cachedData = JSON.parse(cached)
+            if (!cancelled) setter(cachedData)
+            return
+          } catch (e) {
+            sessionStorage.removeItem(cacheKey)
+            sessionStorage.removeItem(`${cacheKey}-timestamp`)
+          }
+        }
+        
+        try {
+          const response = await fetch(endpoint)
+          if (!response.ok) throw new Error(await response.text())
+          const data = await response.json()
+          if (!cancelled) {
+            setter(data)
+            sessionStorage.setItem(cacheKey, JSON.stringify(data))
+            sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+          }
+        } catch (e) {
+          if (!cancelled) errorSetter(e instanceof Error ? e.message : `Failed to load ${endpoint}`)
+        }
+      }
+
+      fetchWithCache('/api/github/prs', setPrs, setPrsErr)
+      fetchWithCache('/api/github/issues', setIssues, setIssuesErr)
+      fetchWithCache('/api/github/repos', setRepos, setReposErr)
     }
     return () => {
       cancelled = true
@@ -158,7 +201,28 @@ export default function DashboardPage() {
 
           {/* Show loading placeholder if session still initializing */}
           {loading && (
-            <div className="mb-8 text-gray-600">Loading…</div>
+            <div className="mb-8 animate-pulse">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-5 rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
+                        <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                      </div>
+                      <div className="h-8 w-24 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div className="flex items-baseline gap-3">
+                        <div className="h-8 w-16 bg-gray-200 rounded"></div>
+                        <div className="h-6 w-12 bg-gray-200 rounded-full"></div>
+                      </div>
+                      <div className="h-4 w-12 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* KPI Row */}
@@ -166,13 +230,13 @@ export default function DashboardPage() {
             {/* Contributions sparkline (last 30d) */}
             <MiniKPI
               title="Contributions (30d)"
-              value={(() => {
+              value={useMemo(() => {
                 if (!contriData?.calendar?.days) return 0
                 const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
                 const last30 = days.slice(-30)
                 return last30.reduce((s,d)=>s+d.contributionCount,0)
-              })()}
-              delta={(() => {
+              }, [contriData?.calendar?.days])}
+              delta={useMemo(() => {
                 if (!contriData?.calendar?.days) return undefined
                 const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
                 const last30 = days.slice(-30)
@@ -182,13 +246,13 @@ export default function DashboardPage() {
                 if (b === 0) return { value: 0, positive: true }
                 const pct = Math.round(((a-b)/b)*100)
                 return { value: Math.abs(pct), positive: pct >= 0 }
-              })()}
-              series={(() => {
+              }, [contriData?.calendar?.days])}
+              series={useMemo(() => {
                 if (!contriData?.calendar?.days) return []
                 const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
                 const last30 = days.slice(-30).map(d=>d.contributionCount)
                 return last30
-              })()}
+              }, [contriData?.calendar?.days])}
               stroke="#7c3aed"
               icon={<GitCommit className="w-4 h-4" />}
             />
@@ -197,14 +261,17 @@ export default function DashboardPage() {
             <MiniKPI
               title="Pull Requests"
               value={prs ? prs.totals.total : 0}
-              delta={prs ? { value: Math.min(99, Math.round((prs.totals.merged / Math.max(1, prs.totals.total))*100)), positive: true } : undefined}
-              series={(() => {
+              delta={useMemo(() => 
+                prs ? { value: Math.min(99, Math.round((prs.totals.merged / Math.max(1, prs.totals.total))*100)), positive: true } : undefined,
+                [prs]
+              )}
+              series={useMemo(() => {
                 if (!prs?.recent) return []
                 const counts: Record<string, number> = {}
                 prs.recent.forEach((p:any)=>{ const d = new Date(p.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
                 const keys = Object.keys(counts).sort()
                 return keys.slice(-30).map(k=>counts[k] || 0)
-              })()}
+              }, [prs?.recent])}
               stroke="#10b981"
               icon={<GitPullRequest className="w-4 h-4" />}
             />
@@ -213,14 +280,17 @@ export default function DashboardPage() {
             <MiniKPI
               title="Issues"
               value={issues ? issues.totals.total : 0}
-              delta={issues ? { value: Math.min(99, Math.round((issues.totals.closed / Math.max(1, issues.totals.total))*100)), positive: true } : undefined}
-              series={(() => {
+              delta={useMemo(() => 
+                issues ? { value: Math.min(99, Math.round((issues.totals.closed / Math.max(1, issues.totals.total))*100)), positive: true } : undefined,
+                [issues]
+              )}
+              series={useMemo(() => {
                 if (!issues?.recent) return []
                 const counts: Record<string, number> = {}
                 issues.recent.forEach((i:any)=>{ const d = new Date(i.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
                 const keys = Object.keys(counts).sort()
                 return keys.slice(-30).map(k=>counts[k] || 0)
-              })()}
+              }, [issues?.recent])}
               stroke="#6366f1"
               icon={<MessageSquare className="w-4 h-4" />}
             />
@@ -239,7 +309,38 @@ export default function DashboardPage() {
             </div>
 
             {contriLoading ? (
-              <div className="p-6 text-gray-600">Loading contributions…</div>
+              <div className="animate-pulse">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gray-200 rounded-md"></div>
+                        <div>
+                          <div className="h-3 w-20 bg-gray-200 rounded mb-1"></div>
+                          <div className="h-5 w-12 bg-gray-200 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="p-4 border rounded-lg">
+                      <div className="h-4 w-24 bg-gray-200 rounded mb-1"></div>
+                      <div className="h-6 w-16 bg-gray-200 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="h-3 w-32 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 w-48 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="h-32 bg-gray-200 rounded"></div>
+                </div>
+              </div>
             ) : contriError ? (
               <div className="p-6 text-red-600">{contriError}</div>
             ) : contriData ? (

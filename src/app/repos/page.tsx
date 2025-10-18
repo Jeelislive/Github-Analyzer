@@ -40,21 +40,74 @@ export default function ReposPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    
+    // Check cache first
+    const cacheKey = 'repos-summary'
+    const cached = sessionStorage.getItem(cacheKey)
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+    
+    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+      try {
+        const cachedData = JSON.parse(cached)
+        if (!cancelled) {
+          setData(cachedData)
+          setLoading(false)
+        }
+        return
+      } catch (e) {
+        // Clear invalid cache
+        sessionStorage.removeItem(cacheKey)
+        sessionStorage.removeItem(`${cacheKey}-timestamp`)
+      }
+    }
+    
     fetch('/api/github/repos')
       .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setData(j))
-      .catch((e) => !cancelled && setError(e?.message || 'Failed to load repos'))
+      .then((j) => {
+        if (!cancelled) {
+          setData(j)
+          // Cache the response
+          sessionStorage.setItem(cacheKey, JSON.stringify(j))
+          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+        }
+      })
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Failed to load repos'))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
   }, [])
 
   const loadSection = async (section: Section) => {
     if (sections[section].loaded || sections[section].loading) return
+    
+    // Check cache first
+    const cacheKey = `repos-section-${section}`
+    const cached = sessionStorage.getItem(cacheKey)
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
+    const cacheExpiry = 5 * 60 * 1000 // 5 minutes
+    
+    if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
+      try {
+        const cachedData = JSON.parse(cached)
+        setSections((s) => ({ ...s, [section]: { items: cachedData.items, loaded: true, loading: false } }))
+        return
+      } catch (e) {
+        // Clear invalid cache
+        sessionStorage.removeItem(cacheKey)
+        sessionStorage.removeItem(`${cacheKey}-timestamp`)
+      }
+    }
+    
     setSections((s) => ({ ...s, [section]: { ...s[section], loading: true } }))
     try {
       const res = await fetch(`/api/github/repos?section=${section}`)
       if (!res.ok) throw new Error(await res.text())
       const json: { section: Section; total: number; items: Item[] } = await res.json()
+      
+      // Cache the response
+      sessionStorage.setItem(cacheKey, JSON.stringify(json))
+      sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
+      
       setSections((s) => ({ ...s, [section]: { items: json.items, loaded: true, loading: false } }))
     } catch {
       setSections((s) => ({ ...s, [section]: { ...s[section], loading: false } }))
