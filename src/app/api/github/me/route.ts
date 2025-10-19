@@ -39,10 +39,10 @@ export async function GET() {
     const cacheKey = `me:${user.login}`
     const cached = getCache<any>(cacheKey)
     const [emailsRes, orgsRes, eventsRes, prsRes] = await Promise.allSettled([
-      octokit.rest.users.listEmailsForAuthenticatedUser(),
-      octokit.rest.orgs.listForAuthenticatedUser({ per_page: 50 }),
-      octokit.rest.activity.listEventsForAuthenticatedUser({ username: user.login, per_page: 20 }),
-      octokit.rest.search.issuesAndPullRequests({ q: `type:pr author:${user.login} is:public`, per_page: 20, sort: 'updated', order: 'desc' }),
+      octokit.rest.users.listEmailsForAuthenticatedUser().catch(() => ({ data: [] })),
+      octokit.rest.orgs.listForAuthenticatedUser({ per_page: 50 }).catch(() => ({ data: [] })),
+      octokit.rest.activity.listEventsForAuthenticatedUser({ username: user.login, per_page: 20 }).catch(() => ({ data: [] })),
+      octokit.rest.search.issuesAndPullRequests({ q: `type:pr author:${user.login} is:public`, per_page: 20, sort: 'updated', order: 'desc' }).catch(() => ({ data: { items: [] } })),
     ])
 
     const emails = emailsRes.status === 'fulfilled' ? emailsRes.value.data as any[] : []

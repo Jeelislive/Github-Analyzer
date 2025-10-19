@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import MermaidArchitectureDiagram from '@/components/ui/mermaidArchitectureDiagram'
 import ComponentCodeModal from '@/components/ui/componentCodeModal'
 import DeleteConfirmationDialog from '@/components/ui/deleteConfirmationDialog'
+import LoadingState from '@/components/ui/LoadingState'
+import { useMultiApiCache } from '@/hooks/useApiCache'
 import { ArrowLeft, Search, Code, FileText, GitBranch, Zap, Eye, Trash2 } from 'lucide-react'
 
 interface Component {
@@ -78,78 +80,58 @@ interface ArchitectureData {
   }
 }
 
+type RepoDetailsData = {
+  repository: any
+  enhanced: any
+}
+
 export default function RepositoryDetailPage() {
   const params = useParams()
   const router = useRouter()
   const repoId = params.repoId as string
 
-  const [repository, setRepository] = useState<any>(null)
-  const [components, setComponents] = useState<Component[]>([])
-  const [files, setFiles] = useState<FileData[]>([])
+  // Memoize endpoints to prevent infinite re-renders
+  const endpoints = useMemo(() => [
+    { url: `/api/repos/${repoId}?include=files,analytics,documentation`, key: 'repository' as keyof RepoDetailsData, cacheKey: `repo-details-${repoId}` },
+    { url: `/api/repos/${repoId}`, key: 'enhanced' as keyof RepoDetailsData, cacheKey: `repo-enhanced-${repoId}` }
+  ], [repoId])
+
+  // Consolidated API calls
+  const { data, loading, error } = useMultiApiCache<RepoDetailsData>(endpoints)
+
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null)
-  const [architecture, setArchitecture] = useState<ArchitectureData | null>(null)
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState<string>('all')
-  const [enhancedData, setEnhancedData] = useState<any>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  useEffect(() => {
-    if (repoId) {
-      fetchRepositoryDetails()
-      fetchEnhancedData()
-    }
-  }, [repoId])
+  // Extract data from consolidated response
+  const repository = data?.repository
+  const enhancedData = data?.enhanced?.data
+  const files = useMemo(() => {
+    return Array.isArray(repository?.files) ? repository.files as FileData[] : []
+  }, [repository?.files])
 
-  const fetchRepositoryDetails = async () => {
-    try {
-      const response = await fetch(`/api/repos/${repoId}?include=files,analytics,documentation`)
-      if (response.ok) {
-        const data = await response.json()
-        setRepository(data)
-        if (Array.isArray(data.files)) {
-          setFiles(data.files as FileData[])
-        }
-      }
-    } catch (error) {
-    }
-  }
+  const architecture = useMemo(() => {
+    return enhancedData?.architecture || null
+  }, [enhancedData?.architecture])
 
-  const fetchEnhancedData = async () => {
-    try {
-      const response = await fetch(`/api/repos/${repoId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setEnhancedData(data.data)
-        
-        // Extract architecture data
-        if (data.data?.architecture) {
-          setArchitecture(data.data.architecture)
-        }
-        
-        // Extract components from architecture nodes
-        if (data.data?.architecture?.nodes) {
-          const extractedComponents = data.data.architecture.nodes
-            .filter((node: any) => node.type === 'component' || node.type === 'page')
-            .map((node: any) => ({
-              id: node.id,
-              name: node.cleanName || node.label,
-              type: node.type,
-              path: node.path,
-              startLine: 1,
-              endLine: Math.floor(node.size / 50) || 10,
-              complexity: node.complexity || 0,
-              description: `Component from ${node.path}`
-            }))
-          setComponents(extractedComponents)
-        }
-      }
-    } catch (error) {
-    } finally {
-      setLoading(false)
-    }
-  }
+  const components = useMemo(() => {
+    if (!enhancedData?.architecture?.nodes) return []
+    return enhancedData.architecture.nodes
+      .filter((node: any) => node.type === 'component' || node.type === 'page')
+      .map((node: any) => ({
+        id: node.id,
+        name: node.cleanName || node.label,
+        type: node.type,
+        path: node.path,
+        startLine: 1,
+        endLine: Math.floor(node.size / 50) || 10,
+        complexity: node.complexity || 0,
+        description: `Component from ${node.path}`
+      }))
+  }, [enhancedData?.architecture?.nodes])
+
 
   const fetchFileDetails = async (fileId: string) => {
     try {
@@ -159,10 +141,11 @@ export default function RepositoryDetailPage() {
         setSelectedFile(data)
       }
     } catch (error) {
+      // Handle error silently for now
     }
   }
 
-  const handleNodeClick = (node: any) => {
+  const handleNodeClick = (node: { id: string; [key: string]: any }) => {
     // When a node is clicked in the diagram, show file details
     fetchFileDetails(node.id)
   }
@@ -194,7 +177,7 @@ export default function RepositoryDetailPage() {
     }
   }
 
-  const filteredComponents = components.filter(component => {
+  const filteredComponents = components.filter((component: Component) => {
     const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          component.path.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = selectedType === 'all' || component.type === selectedType
@@ -226,7 +209,32 @@ export default function RepositoryDetailPage() {
   }
 
   if (loading) {
-    return <div className="w-full px-6 py-6">Loading...</div>
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <LoadingState variant="page" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <div className="text-red-600 mb-4">Error loading repository data</div>
+          <div className="text-gray-500">{error}</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!repository) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <div className="text-gray-500">Repository not found</div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -327,11 +335,11 @@ export default function RepositoryDetailPage() {
 
           {/* Components Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredComponents.map((component) => (
+            {filteredComponents.map((component: Component) => (
               <Card key={component.id} className="p-4 hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
                     onClick={() => {
                       // Find the file ID for this component
-                      const fileNode = architecture?.nodes.find(node => node.path === component.path)
+                      const fileNode = architecture?.nodes.find((node: any) => node.path === component.path)
                       if (fileNode) {
                         fetchFileDetails(fileNode.id)
                       }
@@ -444,7 +452,7 @@ export default function RepositoryDetailPage() {
                 
                 <TabsContent value="components" className="mt-4">
                   <div className="space-y-4">
-                    {selectedFile.components.map((component) => (
+                    {selectedFile.components.map((component: Component) => (
                       <Card key={component.id} className="p-4 overflow-hidden">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1 min-w-0 mr-3">

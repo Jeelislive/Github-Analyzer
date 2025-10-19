@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import { Calendar, Flame, GitCommit, GitPullRequest, MessageSquare, Sparkles, St
 import Sidebar from '@/components/dashboard/Sidebar'
 import RightProfilePanel from '@/components/dashboard/RightProfilePanel'
 import MiniKPI from '@/components/charts/MiniKPI'
+import { useMultiApiCache } from '@/hooks/useApiCache'
 
 interface Repository {
   id: string
@@ -28,131 +29,78 @@ interface Repository {
   enhancedData?: any
 }
 
+type ContributionsData = {
+  user: { login: string; name?: string | null }
+  range: { from: string; to: string }
+  totals: {
+    totalContributions: number
+    totalCommits: number
+    totalIssues: number
+    totalPRs: number
+    totalReviews: number
+    restricted: number
+    startedAt: string
+    endedAt: string
+    years: number[]
+  }
+  streaks: { currentStreak: number; longestStreak: number }
+  calendar: { total: number; days: HeatmapDay[] }
+}
+
+type PRsData = {
+  totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }
+  recent: any[]
+}
+
+type IssuesData = {
+  totals: { total: number; open: number; closed: number; avgFirstResponseMs: number | null }
+  recent: any[]
+}
+
+type ReposData = {
+  totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }
+  topByStars: any[]
+}
+
+type DashboardData = {
+  contributions: ContributionsData
+  prs: PRsData
+  issues: IssuesData
+  repos: ReposData
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
-  const [contriLoading, setContriLoading] = useState(true)
-  const [contriError, setContriError] = useState<string | null>(null)
-  const [contriData, setContriData] = useState<null | {
-    user: { login: string; name?: string | null }
-    range: { from: string; to: string }
-    totals: {
-      totalContributions: number
-      totalCommits: number
-      totalIssues: number
-      totalPRs: number
-      totalReviews: number
-      restricted: number
-      startedAt: string
-      endedAt: string
-      years: number[]
-    }
-    streaks: { currentStreak: number; longestStreak: number }
-    calendar: { total: number; days: HeatmapDay[] }
-  }>(null)
+
+  // Memoize endpoints to prevent infinite re-renders
+  const endpoints = useMemo(() => [
+    { url: '/api/github/contributions?range=365d', key: 'contributions' as keyof DashboardData, cacheKey: 'dashboard-contributions', optional: true },
+    { url: '/api/github/prs', key: 'prs' as keyof DashboardData, cacheKey: 'dashboard-prs', optional: true },
+    { url: '/api/github/issues', key: 'issues' as keyof DashboardData, cacheKey: 'dashboard-issues', optional: true },
+    { url: '/api/github/repos', key: 'repos' as keyof DashboardData, cacheKey: 'dashboard-repos', optional: true }
+  ], [])
+
+  // Consolidated API calls using existing hook with optional endpoints
+  const { data, loading: apiLoading, error, partialData } = useMultiApiCache<DashboardData>(endpoints)
 
   // Deterministic formatters to avoid locale-based hydration mismatches
   const numberFormatter = useMemo(() => new Intl.NumberFormat('en-US'), [])
   const formatDateUTC = useCallback((iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC' }), [])
 
-  // PRs
-  const [prs, setPrs] = useState<null | { totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }, recent: any[] }>(null)
-  const [prsErr, setPrsErr] = useState<string | null>(null)
-  // Issues
-  const [issues, setIssues] = useState<null | { totals: { total: number; open: number; closed: number; avgFirstResponseMs: number | null }, recent: any[] }>(null)
-  const [issuesErr, setIssuesErr] = useState<string | null>(null)
-  // Repos
-  const [repos, setRepos] = useState<null | { totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }, topByStars: any[] }>(null)
-  const [reposErr, setReposErr] = useState<string | null>(null)
-
   useEffect(() => {
     if (session?.user) {
-      // Minimal loading to avoid flash
       setLoading(false)
     }
   }, [session])
 
-  useEffect(() => {
-    let cancelled = false
-    if (session?.user) {
-      setContriLoading(true)
-      
-      const cacheKey = `contributions-${session.user.id}-365d`
-      const cached = localStorage.getItem(cacheKey)
-      const cacheTimestamp = localStorage.getItem(`${cacheKey}-timestamp`)
-      const cacheExpiry = 10 * 60 * 1000 // 10 minutes
-      
-      if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-        try {
-          const cachedData = JSON.parse(cached)
-          if (!cancelled) {
-            setContriData(cachedData)
-            setContriLoading(false)
-          }
-          return
-        } catch (e) {
-          localStorage.removeItem(cacheKey)
-          localStorage.removeItem(`${cacheKey}-timestamp`)
-        }
-      }
-      
-      fetch('/api/github/contributions?range=365d')
-        .then(async (res) => {
-          if (!res.ok) throw new Error(await res.text())
-          return res.json()
-        })
-        .then((json) => {
-          if (!cancelled) {
-            setContriData(json)
-            localStorage.setItem(cacheKey, JSON.stringify(json))
-            localStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-          }
-        })
-        .catch((e) => {
-          if (!cancelled) setContriError(e instanceof Error ? e.message : 'Failed to load contributions')
-        })
-        .finally(() => {
-          if (!cancelled) setContriLoading(false)
-        })
-      const fetchWithCache = async (endpoint: string, setter: Function, errorSetter: Function) => {
-        const cacheKey = `${endpoint.replace('/api/github/', '')}-${session.user.id}`
-        const cached = sessionStorage.getItem(cacheKey)
-        const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`)
-        const cacheExpiry = 5 * 60 * 1000 // 5 minutes
-        
-        if (cached && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < cacheExpiry) {
-          try {
-            const cachedData = JSON.parse(cached)
-            if (!cancelled) setter(cachedData)
-            return
-          } catch (e) {
-            sessionStorage.removeItem(cacheKey)
-            sessionStorage.removeItem(`${cacheKey}-timestamp`)
-          }
-        }
-        
-        try {
-          const response = await fetch(endpoint)
-          if (!response.ok) throw new Error(await response.text())
-          const data = await response.json()
-          if (!cancelled) {
-            setter(data)
-            sessionStorage.setItem(cacheKey, JSON.stringify(data))
-            sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString())
-          }
-        } catch (e) {
-          if (!cancelled) errorSetter(e instanceof Error ? e.message : `Failed to load ${endpoint}`)
-        }
-      }
-
-      fetchWithCache('/api/github/prs', setPrs, setPrsErr)
-      fetchWithCache('/api/github/issues', setIssues, setIssuesErr)
-      fetchWithCache('/api/github/repos', setRepos, setReposErr)
-    }
-    return () => {
-      cancelled = true
-    }
-  }, [session])
+  // Extract data from consolidated response (use partial data if available)
+  const contriData = data?.contributions || partialData?.contributions
+  const prs = data?.prs || partialData?.prs
+  const issues = data?.issues || partialData?.issues
+  const repos = data?.repos || partialData?.repos
+  const contriLoading = apiLoading
+  const contriError = error
 
   return (
     <div className="w-full px-6 py-6">

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import AIInsightsDashboard from '@/components/ui/aiInsightsDashboard'
 import CollaborationNetwork from '@/components/ui/collaborationNetwork'
 import EvolutionTimeline from '@/components/ui/evolutionTimeline'
+import { useApiCache } from '@/hooks/useApiCache'
 import { GitBranch, Plus, Search, Sparkles, Brain, Zap, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
 
 interface Repository {
@@ -36,11 +37,7 @@ export default function AnalyzerPage() {
   const [activeTab, setActiveTab] = useState('repositories')
   const [deletingRepoId, setDeletingRepoId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchRepositories()
-    }
-  }, [session])
+  // Removed old useEffect - now handled by useApiCache hook
 
   useEffect(() => {
     if (repositories.length > 0 && !selectedRepo) {
@@ -51,18 +48,16 @@ export default function AnalyzerPage() {
     }
   }, [repositories, selectedRepo])
 
-  const fetchRepositories = async () => {
-    try {
-      const response = await fetch('/api/repos')
-      if (response.ok) {
-        const data = await response.json()
-        setRepositories(data)
-      }
-    } catch (error) {
-    } finally {
-      setLoading(false)
+  const { data: reposData, loading: reposLoading } = useApiCache<Repository[]>('/api/repos', {
+    cacheKey: 'analyzer-repos'
+  })
+
+  useEffect(() => {
+    if (reposData) {
+      setRepositories(reposData)
     }
-  }
+    setLoading(reposLoading)
+  }, [reposData, reposLoading])
 
   const analyzeRepository = async (enhanced = false) => {
     if (!repoUrl) return
@@ -90,10 +85,10 @@ export default function AnalyzerPage() {
       if (response.ok) {
         const data = await response.json()
         setRepoUrl('')
-        await fetchRepositories()
+        // Repositories will be updated automatically via cache
         if (enhanced && data.enhancedData) {
           setTimeout(async () => {
-            await fetchRepositories()
+            // Repositories will be updated automatically via cache
             const newRepo = repositories.find(r => r.id === data.repositoryId)
             if (newRepo) {
               setSelectedRepo(newRepo)

@@ -1,12 +1,14 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, GitPullRequest, MessageSquare, Trophy } from 'lucide-react'
 import AppShell from '@/components/dashboard/AppShell'
+import { useMultiApiCache } from '@/hooks/useApiCache'
+import LoadingState from '@/components/ui/LoadingState'
 
 interface ContributionsResponse { totals: { totalContributions: number } }
 interface PRResponse { totals: { total: number; merged: number } }
@@ -18,16 +20,27 @@ type Goals = {
   monthlyIssues: number
 }
 
+type GoalsData = {
+  contributions: ContributionsResponse
+  prs: PRResponse
+  issues: IssueResponse
+}
+
 const DEFAULT_GOALS: Goals = { dailyContrib: 1, monthlyPRs: 4, monthlyIssues: 4 }
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS)
   const [saved, setSaved] = useState(false)
 
-  // Live stats
-  const [contrib, setContrib] = useState<number | null>(null)
-  const [prs, setPrs] = useState<{ total: number; merged: number } | null>(null)
-  const [issues, setIssues] = useState<{ total: number; closed: number } | null>(null)
+  // Memoize endpoints to prevent infinite re-renders
+  const endpoints = useMemo(() => [
+    { url: '/api/github/contributions?range=30d', key: 'contributions' as keyof GoalsData, cacheKey: 'goals-contributions' },
+    { url: '/api/github/prs', key: 'prs' as keyof GoalsData, cacheKey: 'goals-prs' },
+    { url: '/api/github/issues', key: 'issues' as keyof GoalsData, cacheKey: 'goals-issues' }
+  ], [])
+
+  // Consolidated API calls using existing hook
+  const { data, loading, error } = useMultiApiCache<GoalsData>(endpoints)
 
   useEffect(() => {
     // load goals
@@ -37,26 +50,10 @@ export default function GoalsPage() {
     } catch {}
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    // contributions for last 30 days
-    fetch('/api/github/contributions?range=30d')
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setContrib(j?.totals?.totalContributions ?? null))
-      .catch(() => !cancelled && setContrib(null))
-
-    fetch('/api/github/prs')
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setPrs({ total: j.totals.total, merged: j.totals.merged }))
-      .catch(() => !cancelled && setPrs(null))
-
-    fetch('/api/github/issues')
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json() })
-      .then((j) => !cancelled && setIssues({ total: j.totals.total, closed: j.totals.closed }))
-      .catch(() => !cancelled && setIssues(null))
-
-    return () => { cancelled = true }
-  }, [])
+  // Extract data from consolidated response
+  const contrib = data?.contributions?.totals?.totalContributions ?? null
+  const prs = data?.prs ? { total: data.prs.totals.total, merged: data.prs.totals.merged } : null
+  const issues = data?.issues ? { total: data.issues.totals.total, closed: data.issues.totals.closed } : null
 
   const monthDays = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate(), [])
   const avgDailyFrom30d = useMemo(() => contrib != null ? Math.round(contrib / 30) : null, [contrib])
@@ -73,6 +70,26 @@ export default function GoalsPage() {
       <div className="w-full h-2 bg-gray-100 rounded">
         <div className="h-2 rounded bg-emerald-500" style={{ width: `${pct}%` }} />
       </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="w-full px-6 py-6">
+          <LoadingState variant="page" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (error) {
+    return (
+      <AppShell>
+        <div className="w-full px-6 py-6">
+          <div className="text-red-600">Error loading goals data: {error}</div>
+        </div>
+      </AppShell>
     )
   }
 
