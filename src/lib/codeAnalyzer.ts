@@ -30,7 +30,6 @@ export function analyzeCode(content: string, language: string): CodeComponent[] 
       return analyzeJavaScript(content)
     }
   } catch (error) {
-    console.warn('Failed to analyze code:', error)
   }
   
   return components
@@ -46,7 +45,6 @@ export function parseImports(content: string, language: string): ImportInfo[] {
       return parseJavaScriptImports(content)
     }
   } catch (error) {
-    console.warn('Failed to parse imports:', error)
   }
   
   return imports
@@ -156,7 +154,6 @@ function analyzeTypeScript(content: string): CodeComponent[] {
     
     visit(sourceFile)
   } catch (error) {
-    console.warn('TypeScript analysis failed:', error)
   }
   
   return components
@@ -228,7 +225,6 @@ function analyzeJavaScript(content: string): CodeComponent[] {
       }
     })
   } catch (error) {
-    console.warn('JavaScript analysis failed:', error)
   }
   
   return components
@@ -288,7 +284,6 @@ function parseTypeScriptImports(content: string): ImportInfo[] {
     
     visit(sourceFile)
   } catch (error) {
-    console.warn('TypeScript import parsing failed:', error)
   }
   
   return imports
@@ -332,7 +327,6 @@ function parseJavaScriptImports(content: string): ImportInfo[] {
       }
     })
   } catch (error) {
-    console.warn('JavaScript import parsing failed:', error)
   }
   
   return imports

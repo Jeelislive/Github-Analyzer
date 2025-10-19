@@ -464,18 +464,15 @@ export default function MermaidArchitectureDiagram({ data, onNodeClick }: Mermai
             }
           }
         }).catch(error => {
-          console.error('Mermaid rendering error:', error)
           if (mermaidRef.current) {
             mermaidRef.current.innerHTML = `
               <div class="p-8 text-center text-red-400">
-                <p>Error rendering diagram</p>
-                <pre class="text-xs mt-2 opacity-70">${error.message}</pre>
+                <p>Failed to render diagram</p>
               </div>
             `
           }
         })
       } catch (error) {
-        console.error('Mermaid syntax error:', error)
       }
     }
   }, [generateMermaidSyntax, zoom, processedNodes, onNodeClick])

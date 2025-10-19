@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     const [, owner, repoName] = urlMatch
-    console.log(`🚀 Starting enhanced analysis for ${owner}/${repoName}`)
 
     const analysisOptions = {
       includeFileContent: true,
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
       analysisOptions
     )
 
-    console.log(`✅ Enhanced analysis completed for ${owner}/${repoName}`)
     const sanitizeData = (data: any): any => {
       if (data === null || data === undefined) return null
       if (typeof data === 'string') {

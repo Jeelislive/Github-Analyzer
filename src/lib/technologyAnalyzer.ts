@@ -554,7 +554,6 @@ export class TechnologyAnalyzer {
   }
 
   analyzeTechnologyStack(data: EnhancedRepositoryData): TechnologyStack {
-    console.log('🔍 Analyzing technology stack...')
     
     const stack: TechnologyStack = {
       frontend: [],
@@ -575,7 +574,6 @@ export class TechnologyAnalyzer {
     // Analyze configuration files
     this.analyzeConfigFiles(data.content.files, stack)
 
-    console.log(`✅ Technology stack analysis complete: ${this.getTotalTechnologies(stack)} technologies detected`)
     
     return stack
   }

@@ -113,7 +113,6 @@ export default function RepositoryDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch repository details:', error)
     }
   }
 
@@ -147,7 +146,6 @@ export default function RepositoryDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch enhanced data:', error)
     } finally {
       setLoading(false)
     }
@@ -161,7 +159,6 @@ export default function RepositoryDetailPage() {
         setSelectedFile(data)
       }
     } catch (error) {
-      console.error('Failed to fetch file details:', error)
     }
   }
 
@@ -187,11 +184,9 @@ export default function RepositoryDetailPage() {
         router.push('/dashboard')
       } else {
         const error = await response.json()
-        console.error('Delete failed:', error)
         alert('Failed to delete repository analysis. Please try again.')
       }
     } catch (error) {
-      console.error('Delete error:', error)
       alert('An error occurred while deleting the repository analysis.')
     } finally {
       setIsDeleting(false)

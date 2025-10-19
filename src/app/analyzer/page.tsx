@@ -59,7 +59,6 @@ export default function AnalyzerPage() {
         setRepositories(data)
       }
     } catch (error) {
-      console.error('Failed to fetch repositories:', error)
     } finally {
       setLoading(false)
     }
@@ -107,7 +106,6 @@ export default function AnalyzerPage() {
         alert(`Analysis failed: ${error.details || error.error}`)
       }
     } catch (error) {
-      console.error('Analysis failed:', error)
       alert('Analysis failed. Please try again.')
     } finally {
       setLoadingState(false)
@@ -153,10 +151,8 @@ export default function AnalyzerPage() {
       } else {
         const error = await response.json()
         alert('Failed to delete repository analysis. Please try again.')
-        console.error('Delete failed:', error)
       }
     } catch (error) {
-      console.error('Delete error:', error)
       alert('An error occurred while deleting the repository analysis.')
     } finally {
       setDeletingRepoId(null)

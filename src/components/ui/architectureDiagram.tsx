@@ -76,12 +76,10 @@ Format response as JSON with these fields:
         try {
           return JSON.parse(content)
         } catch (parseError) {
-          console.error('Failed to parse Gemini response:', parseError)
           return this.getFallbackInsights()
         }
       }
     } catch (error) {
-      console.error('Failed to get Gemini insights:', error)
     }
 
     return this.getFallbackInsights()

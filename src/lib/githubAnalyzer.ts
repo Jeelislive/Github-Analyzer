@@ -21,7 +21,6 @@ export async function analyzeRepository(
   userId: string
 ) {
   try {
-    console.log(`Starting analysis for ${owner}/${repoName}`)
     
     // Update status to analyzing
     await prisma.analyzedRepo.update({
@@ -103,7 +102,6 @@ export async function analyzeRepository(
       }
     })
 
-    console.log(`Analysis completed for ${owner}/${repoName}`)
 
   } catch (error) {
     console.error(`Analysis failed for ${owner}/${repoName}:`, error)
@@ -207,7 +205,6 @@ async function analyzeRepositoryStructure(
               complexity = calculateComplexity(content, language)
             }
           } catch (error) {
-            console.warn(`Failed to get content for ${file.path}:`, error)
           }
         }
 
@@ -224,7 +221,6 @@ async function analyzeRepositoryStructure(
           complexity
         }
       } catch (error) {
-        console.warn(`Failed to analyze file ${file.path}:`, error)
         return null
       }
     })
@@ -277,7 +273,6 @@ async function analyzeFileRelationships(repoId: string) {
         }
       }
     } catch (error) {
-      console.warn(`Failed to parse imports for ${file.path}:`, error)
     }
   }
 
@@ -321,7 +316,6 @@ async function extractComponents(repoId: string) {
         })
       }
     } catch (error) {
-      console.warn(`Failed to extract components from ${file.path}:`, error)
     }
   }
 
@@ -395,7 +389,6 @@ async function analyzeDependencies(repoId: string, owner: string, repoName: stri
     // TODO: Add support for other dependency files (requirements.txt, Cargo.toml, etc.)
     
   } catch (error) {
-    console.warn('Failed to analyze dependencies:', error)
   }
 }
 
@@ -460,7 +453,6 @@ async function generateRepoDocumentation(repoId: string, owner: string, repoName
     })
 
     if (!repo) {
-      console.warn('Repository not found for documentation generation')
       return
     }
 
@@ -477,13 +469,11 @@ async function generateRepoDocumentation(repoId: string, owner: string, repoName
     await prisma.repoDocumentation.create({
       data: {
         repoId,
-        readme: aiGeneratedReadme, // Use AI-generated README instead of existing one
-        originalReadme: existingReadme, // Store original README separately
+        readme: aiGeneratedReadme,
         apiDocs
       }
     })
   } catch (error) {
-    console.warn('Failed to generate documentation:', error)
   }
 }
 
@@ -603,8 +593,8 @@ async function generateAIReadme(repo: any, owner: string, repoName: string): Pro
       issues: [],
       pullRequests: [],
       dependencies: [],
-      readme: null,
-      packageJson: null
+      readme: '',
+      packageJson: undefined
     }
 
     // Generate comprehensive README using Gemini

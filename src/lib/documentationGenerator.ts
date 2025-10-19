@@ -194,7 +194,6 @@ async function findRelatedComponents(component: any, repoId: string): Promise<st
     
     return [...new Set(related)] // Remove duplicates
   } catch (error) {
-    console.warn('Failed to find related components:', error)
     return []
   }
 }
@@ -280,7 +279,6 @@ export async function generateArchitectureDiagram(repoId: string): Promise<any> 
       ]
     })
     
-    console.log(`Found ${allFiles.length} total files for architecture analysis`)
     
     if (allFiles.length === 0) {
       return { nodes: [], edges: [], stats: { totalNodes: 0, totalEdges: 0, averageConnections: 0 } }
@@ -426,12 +424,6 @@ export async function generateArchitectureDiagram(repoId: string): Promise<any> 
       .sort((a, b) => b.score - a.score)
       .slice(0, 20)
     
-    console.log(`Selected top ${topFiles.length} files:`, topFiles.map(f => ({ 
-      name: f.friendlyName, 
-      score: f.score,
-      type: f.nodeType,
-      layer: f.layer
-    })))
     
     // Create nodes for architecture diagram
     const nodes = topFiles.map(file => ({
@@ -484,12 +476,6 @@ export async function generateArchitectureDiagram(repoId: string): Promise<any> 
       })
     })
     
-    console.log(`Architecture diagram created: ${nodes.length} nodes, ${edges.length} connections`)
-    console.log('Node types:', nodes.reduce((acc, n) => {
-      acc[n.type] = (acc[n.type] || 0) + 1
-      return acc
-    }, {} as Record<string, number>))
-    
     return {
       nodes,
       edges,
@@ -504,12 +490,10 @@ export async function generateArchitectureDiagram(repoId: string): Promise<any> 
       }
     }
   } catch (error) {
-    console.error('Failed to generate architecture diagram:', error)
     return { 
       nodes: [], 
       edges: [], 
-      stats: { totalNodes: 0, totalEdges: 0, averageConnections: 0 },
-      error: error instanceof Error ? error.message : 'Unknown error'
+      stats: { totalNodes: 0, totalEdges: 0, averageConnections: 0 } 
     }
   }
 }

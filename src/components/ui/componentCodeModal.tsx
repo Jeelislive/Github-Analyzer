@@ -43,7 +43,6 @@ export default function ComponentCodeModal({ component, children, repoId, repoOw
         setCode('Code not available')
       }
     } catch (error) {
-      console.error('Failed to fetch component code:', error)
       setCode('Failed to load code')
     } finally {
       setLoading(false)

@@ -22,7 +22,6 @@ export async function GET(
     }
 
     const { repoId } = await params
-    console.log(`Generating architecture diagram for repo: ${repoId}`)
     
     // Check cache first
     const cacheKey = `${repoId}-${session.user.id}`
@@ -30,16 +29,10 @@ export async function GET(
     const now = Date.now()
     
     if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      console.log('Returning cached architecture diagram')
       return NextResponse.json(cached.data)
     }
     
     const diagram = await generateArchitectureDiagram(repoId)
-    console.log(`Architecture diagram generated:`, {
-      totalNodes: diagram.nodes.length,
-      totalEdges: diagram.edges.length,
-      sampleNodes: diagram.nodes.slice(0, 3)
-    })
 
     // Cache the result
     architectureCache.set(cacheKey, { data: diagram, timestamp: now })
@@ -56,7 +49,6 @@ export async function GET(
 
     // If no data found, return empty structure with helpful message
     if (!diagram.nodes.length) {
-      console.log('No nodes found in architecture diagram')
       return NextResponse.json({
         nodes: [],
         edges: [],

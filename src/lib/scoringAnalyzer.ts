@@ -67,7 +67,6 @@ export interface ScoringFactors {
 
 export class ScoringAnalyzer {
   analyzeQualityScores(data: EnhancedRepositoryData): QualityScore {
-    console.log('📊 Analyzing quality scores...')
     
     const factors = this.analyzeScoringFactors(data)
     
@@ -84,7 +83,6 @@ export class ScoringAnalyzer {
       performance: this.calculatePerformanceScore(factors.performance)
     }
 
-    console.log(`✅ Quality scoring complete: Overall score ${scores.overall}/100`)
     
     return scores
   }

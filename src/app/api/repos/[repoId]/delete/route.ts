@@ -50,7 +50,6 @@ export async function DELETE(
       }
     })
 
-    console.log(`✅ Repository analysis deleted: ${repository.owner}/${repository.repoName}`)
 
     return NextResponse.json({
       success: true,

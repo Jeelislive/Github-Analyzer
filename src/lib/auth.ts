@@ -49,7 +49,6 @@ export async function getGitHubToken(userId: string): Promise<string | null> {
     if (!account?.access_token) return null
     
     if (account.expires_at && account.expires_at < Math.floor(Date.now() / 1000)) {
-      console.warn('GitHub token expired for user:', userId)
       return null
     }
     
@@ -100,7 +99,6 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "github" && user?.email) {
         return true
       }
-      console.warn('Sign-in attempt failed validation:', { provider: account?.provider, hasEmail: !!user?.email })
       return false
     },
     async jwt({ token, user, account }) {
@@ -146,13 +144,6 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user, account, isNewUser }) {
-      console.log('User authentication:', {
-        userId: user.id,
-        email: user.email,
-        provider: account?.provider,
-        isNewUser,
-        timestamp: new Date().toISOString()
-      })
     },
     async signOut({ token }) {
       if (token?.userId) {
@@ -173,12 +164,6 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async session({ session }) {
-      if (process.env.NODE_ENV === 'production') {
-        console.log('Active session:', {
-          userId: session.user?.id,
-          timestamp: new Date().toISOString()
-        })
-      }
     }
   },
 }

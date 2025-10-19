@@ -316,7 +316,6 @@ export class EnhancedGitHubAnalyzer {
         enhancedData.architecture = architecture
         debug(`✅ Architecture analysis complete: ${architecture.nodes.length} components, ${architecture.edges.length} connections`)
       } catch (error) {
-        console.warn('Architecture analysis failed:', error)
       }
 
       // 10. Generate technology stack analysis
@@ -326,7 +325,6 @@ export class EnhancedGitHubAnalyzer {
         enhancedData.technologyStack = technologyStack
         debug(`✅ Technology stack analysis complete: ${this.getTotalTechnologies(technologyStack)} technologies detected`)
       } catch (error) {
-        console.warn('Technology stack analysis failed:', error)
       }
 
       // 11. Generate quality scores
@@ -336,7 +334,6 @@ export class EnhancedGitHubAnalyzer {
         enhancedData.qualityScores = qualityScores
         debug(`✅ Quality scoring complete: Overall score ${qualityScores.overall}/100`)
       } catch (error) {
-        console.warn('Quality scoring failed:', error)
       }
 
       // 12. Generate Gemini AI insights
@@ -346,7 +343,6 @@ export class EnhancedGitHubAnalyzer {
           const geminiInsights = await this.generateGeminiInsights(enhancedData)
           enhancedData.geminiInsights = geminiInsights
         } catch (error) {
-          console.warn('Gemini analysis failed, continuing without AI insights:', error)
         }
       }
 
@@ -433,7 +429,6 @@ export class EnhancedGitHubAnalyzer {
         try {
           packageJson = JSON.parse(packageJsonFile.content)
         } catch (error) {
-          console.warn('Failed to parse package.json:', error)
         }
       }
 
@@ -452,7 +447,6 @@ export class EnhancedGitHubAnalyzer {
       }
 
     } catch (error) {
-      console.warn('Failed to fetch repository content:', error)
     }
 
     return { files, readme, packageJson, license }
@@ -497,7 +491,6 @@ export class EnhancedGitHubAnalyzer {
                 fileInfo.content = await response.text()
               }
             } catch (error) {
-              console.warn(`Failed to fetch content for ${item.path}:`, error)
             }
           }
 
@@ -510,7 +503,6 @@ export class EnhancedGitHubAnalyzer {
         }
       }
     } catch (error) {
-      console.warn(`Failed to fetch contents for path ${path}:`, error)
     }
   }
 
@@ -572,12 +564,10 @@ export class EnhancedGitHubAnalyzer {
               files: detailedCommit.files || []
             })
           } catch (error) {
-            console.warn(`Failed to fetch detailed commit ${commit.sha}:`, error)
           }
         }
       }
     } catch (error) {
-      console.warn('Failed to fetch development activity:', error)
     }
 
     return activity
@@ -633,7 +623,6 @@ export class EnhancedGitHubAnalyzer {
             })
             return detailedPR
           } catch (error) {
-            console.warn(`Failed to fetch detailed PR ${pr.number}:`, error)
             return pr
           }
         })
@@ -658,7 +647,6 @@ export class EnhancedGitHubAnalyzer {
       }))
 
     } catch (error) {
-      console.warn('Failed to fetch collaboration data:', error)
     }
 
     return collaboration
@@ -688,7 +676,6 @@ export class EnhancedGitHubAnalyzer {
       releases.tags = tagsData
 
     } catch (error) {
-      console.warn('Failed to fetch releases and tags:', error)
     }
 
     return releases
@@ -792,7 +779,6 @@ export class EnhancedGitHubAnalyzer {
       debug(`✅ Extracted ${dependencies.production.length} production and ${dependencies.development.length} development dependencies`)
 
     } catch (error) {
-      console.warn('Failed to extract dependencies:', error)
     }
 
     return dependencies
@@ -953,7 +939,6 @@ export class EnhancedGitHubAnalyzer {
         })
       }
     } catch (error) {
-      console.warn('Failed to parse composer.json:', error)
     }
   }
 
@@ -974,7 +959,6 @@ export class EnhancedGitHubAnalyzer {
       // TODO: Fetch vulnerability alerts (requires appropriate permissions)
 
     } catch (error) {
-      console.warn('Failed to fetch quality metrics:', error)
     }
 
     return quality

@@ -5,7 +5,6 @@ import { scoringAnalyzer, type QualityScore } from './scoringAnalyzer'
 // Initialize Gemini AI with environment variable
 const apiKey = process.env.GEMINI_API_KEY
 if (!apiKey) {
-  console.warn('⚠️ GEMINI_API_KEY not found. AI analysis will use fallback data.')
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
@@ -312,7 +311,6 @@ export class GeminiAnalyzer {
     
     // If no API key, return fallback data immediately
     if (!this.model) {
-      console.log('📝 Using fallback insights (no Gemini API key)')
       return this.getFallbackInsights(repoData)
     }
     
@@ -328,7 +326,6 @@ export class GeminiAnalyzer {
       return this.parseGeminiResponse(analysisText, repoData)
       
     } catch (error) {
-      console.error('Gemini analysis failed:', error)
       return this.getFallbackInsights(repoData)
     }
   }
@@ -606,7 +603,6 @@ Be specific and reference actual code examples when possible. Provide realistic 
         visualizations
       }
     } catch (error) {
-      console.error('Failed to parse Gemini response:', error)
       return this.getFallbackInsights(repoData)
     }
   }

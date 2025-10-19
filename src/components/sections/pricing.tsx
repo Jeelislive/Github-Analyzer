@@ -116,7 +116,7 @@ export default function Pricing() {
                 className="w-full h-12 px-4 border rounded-md"
               />
             </div>
-            <Button size="lg" className="h-12 px-8">
+            <Button size="lg" className="h-12 px-8" disabled>
               Analyze
             </Button>
           </div>
