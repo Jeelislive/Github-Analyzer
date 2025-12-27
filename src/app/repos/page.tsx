@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import { getCurrentVisualized } from '@/lib/github-data'
 import { Octokit } from '@octokit/rest'
 import { Github } from 'lucide-react'
@@ -80,27 +79,25 @@ export default function ReposPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading repositories...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading repositories...</p>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
   if (!username) {
     return (
-      <DashboardLayout>
+      <>
         <h1 className="text-3xl font-bold mb-6">Repositories</h1>
         <Card className="p-6">
           <p className="text-muted-foreground">
             No profile visualized. Go to dashboard to fetch and visualize a GitHub profile.
           </p>
         </Card>
-      </DashboardLayout>
+      </>
     )
   }
 
