@@ -1,145 +1,165 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Star, GitFork, Archive, ExternalLink, FolderGit2 } from 'lucide-react'
-import LoadingState from '@/components/ui/LoadingState'
-import { useApiCache } from '@/hooks/useApiCache'
-import { useSectionCache } from '@/hooks/useSectionCache'
-import { timeAgo } from '@/lib/format'
+import { Button } from '@/components/ui/button'
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import { getCurrentVisualized } from '@/lib/github-data'
+import { Octokit } from '@octokit/rest'
+import { Github } from 'lucide-react'
 
-interface ReposResponse {
-  totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }
-  topByStars: Array<{ id: number; full_name: string; html_url: string; stargazers_count: number }>
+interface Repo {
+  id: number
+  name: string
+  full_name: string
+  description: string
+  html_url: string
+  language: string
+  stargazers_count: number
+  forks_count: number
+  fork: boolean
+  archived: boolean
 }
 
 export default function ReposPage() {
-  const { data, loading, error } = useApiCache<ReposResponse>('/api/github/repos', {
-    cacheKey: 'repos-summary'
-  })
-  type Section = 'all' | 'sources' | 'forks' | 'archived'
-  type Item = {
-    id: number
-    name: string
-    full_name: string
-    description: string | null
-    html_url: string
-    language: string | null
-    stargazers_count: number
-    forks_count: number
-    pushed_at: string
-    archived?: boolean
-    fork?: boolean
-  }
-  const [sections, setSections] = useState<Record<Section, { items: Item[]; loaded: boolean; loading: boolean }>>({
-    all: { items: [], loaded: false, loading: false },
-    sources: { items: [], loaded: false, loading: false },
-    forks: { items: [], loaded: false, loading: false },
-    archived: { items: [], loaded: false, loading: false },
-  })
-  const [activeTab, setActiveTab] = useState<Section>('all')
+  const [repos, setRepos] = useState<Repo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [username, setUsername] = useState<string | null>(null)
+  const [filter, setFilter] = useState<'all' | 'sources' | 'forks' | 'archived'>('all')
 
-  const { loadSection } = useSectionCache(sections, setSections, '/api/github/repos')
   useEffect(() => {
-    loadSection('all')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const currentUser = getCurrentVisualized()
+    setUsername(currentUser)
+    if (currentUser) {
+      fetchAllRepos(currentUser)
+    } else {
+      setLoading(false)
+    }
   }, [])
-  useEffect(() => {
-    loadSection(activeTab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
 
-  if (loading) return <div className="p-6"><LoadingState variant="cards" count={6} /></div>
-  if (error) return <div className="p-6 text-red-600">{error}</div>
-  if (!data) return null
+  const fetchAllRepos = async (user: string) => {
+    setLoading(true)
+    try {
+      const octokit = new Octokit()
+      const allRepos: Repo[] = []
+      let page = 1
+      
+      while (true) {
+        const { data } = await octokit.repos.listForUser({ username: user, per_page: 100, page, sort: 'updated' })
+        if (data.length === 0) break
+        allRepos.push(...data.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          full_name: r.full_name,
+          description: r.description || '',
+          html_url: r.html_url,
+          language: r.language || '',
+          stargazers_count: r.stargazers_count || 0,
+          forks_count: r.forks_count || 0,
+          fork: r.fork || false,
+          archived: r.archived || false,
+        })))
+        if (data.length < 100) break
+        page++
+      }
+      
+      setRepos(allRepos)
+    } catch (error) {
+      console.error('Failed to fetch repos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredRepos = repos.filter(repo => {
+    if (filter === 'sources') return !repo.fork && !repo.archived
+    if (filter === 'forks') return repo.fork
+    if (filter === 'archived') return repo.archived
+    return true
+  })
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading repositories...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!username) {
+    return (
+      <DashboardLayout>
+        <h1 className="text-3xl font-bold mb-6">Repositories</h1>
+        <Card className="p-6">
+          <p className="text-muted-foreground">
+            No profile visualized. Go to dashboard to fetch and visualize a GitHub profile.
+          </p>
+        </Card>
+      </DashboardLayout>
+    )
+  }
 
   return (
-    <div className="w-full px-6 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Repositories</h1>
-          <p className="text-gray-600">Your public repositories and languages</p>
-        </div>
+    <>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Repositories</h1>
+        <p className="text-muted-foreground">Viewing {repos.length} repositories for @{username}</p>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <Card className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-gray-100 text-gray-700"><FolderGit2 className="w-5 h-5"/></div>
-          <div>
-            <div className="text-sm text-gray-500">Total Repos</div>
-            <div className="text-2xl font-semibold">{data.totals.repos.toLocaleString()}</div>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Star className="w-5 h-5"/></div>
-          <div>
-            <div className="text-sm text-gray-500">Total Stars</div>
-            <div className="text-2xl font-semibold">{data.totals.totalStars.toLocaleString()}</div>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitFork className="w-5 h-5"/></div>
-          <div>
-            <div className="text-sm text-gray-500">Total Forks</div>
-            <div className="text-2xl font-semibold">{data.totals.totalForks.toLocaleString()}</div>
-          </div>
-        </Card>
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>
+          All ({repos.length})
+        </Button>
+        <Button variant={filter === 'sources' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('sources')}>
+          Sources ({repos.filter(r => !r.fork && !r.archived).length})
+        </Button>
+        <Button variant={filter === 'forks' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('forks')}>
+          Forks ({repos.filter(r => r.fork).length})
+        </Button>
+        <Button variant={filter === 'archived' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('archived')}>
+          Archived ({repos.filter(r => r.archived).length})
+        </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-3 flex items-center gap-2 text-xs">
-        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('all')}>All</button>
-        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='sources' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('sources')}>Sources</button>
-        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='forks' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('forks')}>Forks</button>
-        <button className={`px-2.5 py-1 rounded-md border ${activeTab==='archived' ? 'bg-gray-600 text-white border-gray-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('archived')}>Archived</button>
-      </div>
-
-      {/* Active Section List */}
-      <Card className="p-0 overflow-hidden">
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-          <div className="text-sm font-medium">
-            {activeTab === 'all' && 'All Repositories'}
-            {activeTab === 'sources' && 'Source Repositories'}
-            {activeTab === 'forks' && 'Forked Repositories'}
-            {activeTab === 'archived' && 'Archived Repositories'}
-          </div>
-        </div>
-        <div className="divide-y">
-          {sections[activeTab].items.map((r) => (
-            <a key={r.id} href={r.html_url} target="_blank" rel="noopener noreferrer" className="group block px-4 py-3 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 inline-flex items-center justify-center rounded-md p-1.5 bg-gray-50 text-gray-700">
-                  <FolderGit2 className="w-4 h-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm text-gray-900 truncate group-hover:underline">{r.full_name}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 flex-wrap">
-                    {r.language && <Badge variant="outline" className="px-1.5 py-0.5 text-xs">{r.language}</Badge>}
-                    {typeof r.stargazers_count === 'number' && (
-                      <span className="inline-flex items-center gap-1"><Star className="w-3 h-3"/> {r.stargazers_count}</span>
-                    )}
-                    {typeof r.forks_count === 'number' && (
-                      <span className="inline-flex items-center gap-1"><GitFork className="w-3 h-3"/> {r.forks_count}</span>
-                    )}
-                    {r.fork && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-amber-50 text-amber-700 border-amber-200">fork</span>}
-                    {r.archived && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bg-gray-100 text-gray-700 border-gray-200">archived</span>}
-                    <span>Pushed {timeAgo(r.pushed_at)}</span>
+      {filteredRepos.length === 0 ? (
+        <Card className="p-6">
+          <p className="text-muted-foreground">No repositories found.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {filteredRepos.map((repo) => (
+            <Card key={repo.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold">{repo.name}</h3>
+                    <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                      <Github className="h-4 w-4" />
+                    </a>
+                    {repo.fork && <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Fork</span>}
+                    {repo.archived && <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">Archived</span>}
                   </div>
-                  {r.description && <div className="mt-1 text-xs text-gray-700 line-clamp-2">{r.description}</div>}
+                  {repo.description && (
+                    <p className="text-sm text-muted-foreground mb-3">{repo.description}</p>
+                  )}
+                  <div className="flex gap-4 text-sm text-muted-foreground">
+                    {repo.language && (
+                      <span className="px-2 py-1 bg-muted rounded">{repo.language}</span>
+                    )}
+                    <span>⭐ {repo.stargazers_count}</span>
+                    <span>🍴 {repo.forks_count}</span>
+                  </div>
                 </div>
               </div>
-            </a>
+            </Card>
           ))}
-          {sections[activeTab].items.length === 0 && !sections[activeTab].loading && (
-            <div className="px-4 py-8 text-sm text-gray-600">No repositories found.</div>
-          )}
-          {sections[activeTab].loading && (
-            <div className="px-4 py-8 text-sm text-gray-600">Loading…</div>
-          )}
         </div>
-      </Card>
-    </div>
+      )}
+    </>
   )
 }

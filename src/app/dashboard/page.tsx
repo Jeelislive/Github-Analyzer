@@ -1,323 +1,324 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import LoadingState from '@/components/ui/LoadingState'
-import CommunityPanel from '@/components/community/CommunityPanel'
-import { Brain } from 'lucide-react'
-import DotLottieIcon from '@/components/DotLottieIcon'
-import ContributionHeatmap, { type HeatmapDay } from '@/components/github/ContributionHeatmap'
-import { Calendar, Flame, GitCommit, GitPullRequest, MessageSquare, Sparkles, Star, GitFork, FolderGit2, Search } from 'lucide-react'
-import Sidebar from '@/components/dashboard/Sidebar'
-import RightProfilePanel from '@/components/dashboard/RightProfilePanel'
-import MiniKPI from '@/components/charts/MiniKPI'
-import { useMultiApiCache } from '@/hooks/useApiCache'
+import { Input } from '@/components/ui/input'
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { createClient } from '@/lib/supabase/client'
+import { getVisualizedHistory, addToHistory, setCurrentVisualized as setCurrentVisualizedStorage } from '@/lib/github-data'
+import { Github, MapPin, Link as LinkIcon, Building2, Calendar, Eye, History } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
-interface Repository {
-  id: string
-  owner: string
-  repoName: string
-  description: string
-  language: string
-  stars: number
-  forks: number
-  analysisStatus: 'pending' | 'completed' | 'failed'
-  lastAnalyzed: string
-  enhancedData?: any
-}
-
-type ContributionsData = {
-  user: { login: string; name?: string | null }
-  range: { from: string; to: string }
-  totals: {
-    totalContributions: number
-    totalCommits: number
-    totalIssues: number
-    totalPRs: number
-    totalReviews: number
-    restricted: number
-    startedAt: string
-    endedAt: string
-    years: number[]
-  }
-  streaks: { currentStreak: number; longestStreak: number }
-  calendar: { total: number; days: HeatmapDay[] }
-}
-
-type PRsData = {
-  totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }
-  recent: any[]
-}
-
-type IssuesData = {
-  totals: { total: number; open: number; closed: number; avgFirstResponseMs: number | null }
-  recent: any[]
-}
-
-type ReposData = {
-  totals: { repos: number; totalStars: number; totalForks: number; languages: Record<string, number> }
-  topByStars: any[]
-}
-
-type DashboardData = {
-  contributions: ContributionsData
-  prs: PRsData
-  issues: IssuesData
-  repos: ReposData
+interface GitHubProfile {
+  login: string
+  name: string
+  bio: string
+  avatar_url: string
+  html_url: string
+  location: string
+  blog: string
+  company: string
+  followers: number
+  following: number
+  public_repos: number
+  created_at: string
 }
 
 export default function DashboardPage() {
-  const { data: session } = useSession()
-  const [loading, setLoading] = useState(true)
-
-  // Memoize endpoints to prevent infinite re-renders
-  const endpoints = useMemo(() => [
-    { url: '/api/github/contributions?range=365d', key: 'contributions' as keyof DashboardData, cacheKey: 'dashboard-contributions', optional: true },
-    { url: '/api/github/prs', key: 'prs' as keyof DashboardData, cacheKey: 'dashboard-prs', optional: true },
-    { url: '/api/github/issues', key: 'issues' as keyof DashboardData, cacheKey: 'dashboard-issues', optional: true },
-    { url: '/api/github/repos', key: 'repos' as keyof DashboardData, cacheKey: 'dashboard-repos', optional: true }
-  ], [])
-
-  // Consolidated API calls using existing hook with optional endpoints
-  const { data, loading: apiLoading, error, partialData } = useMultiApiCache<DashboardData>(endpoints)
-
-  // Deterministic formatters to avoid locale-based hydration mismatches
-  const numberFormatter = useMemo(() => new Intl.NumberFormat('en-US'), [])
-  const formatDateUTC = useCallback((iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC' }), [])
+  const { user, loading } = useAuth()
+  const router = useRouter()
+  const supabase = createClient()
+  const [username, setUsername] = useState('')
+  const [githubProfile, setGithubProfile] = useState<GitHubProfile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
+  const [visualizing, setVisualizing] = useState(false)
+  const [error, setError] = useState('')
+  const [currentVisualized, setCurrentVisualized] = useState<string | null>(null)
+  const [history, setHistory] = useState<string[]>([])
 
   useEffect(() => {
-    if (session?.user) {
-      setLoading(false)
+    if (!loading && !user) {
+      router.push('/auth')
     }
-  }, [session])
+    const stored = localStorage.getItem('currentVisualized')
+    if (stored) setCurrentVisualized(stored)
+    setHistory(getVisualizedHistory())
+  }, [user, loading, router])
 
-  // Extract data from consolidated response (use partial data if available)
-  const contriData = data?.contributions || partialData?.contributions
-  const prs = data?.prs || partialData?.prs
-  const issues = data?.issues || partialData?.issues
-  const repos = data?.repos || partialData?.repos
-  const contriLoading = apiLoading
-  const contriError = error
+  const fetchGitHubProfile = async () => {
+    if (!username.trim()) {
+      setError('Please enter a GitHub username')
+      return
+    }
 
-  return (
-    <div className="w-full px-6 py-6">
-      <div className="flex gap-6">
-        {/* Left Sidebar */}
-        <Sidebar />
+    setLoadingProfile(true)
+    setError('')
+    try {
+      const response = await fetch(`https://api.github.com/users/${username.trim()}`)
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('User not found')
+        }
+        throw new Error('Failed to fetch profile')
+      }
+      const data = await response.json()
+      setGithubProfile(data)
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch GitHub profile')
+      setGithubProfile(null)
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
 
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">Welcome back! Explore your GitHub impact.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="hidden md:flex items-center gap-2 px-3 py-2 border rounded-md text-gray-500">
-                <Search className="w-4 h-4" />
-                <input className="outline-none text-sm w-56" placeholder="Search…" />
-              </div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                <Brain className="w-3 h-3 mr-1" /> Powered by Gemini AI
-              </Badge>
-            </div>
-          </div>
+  const visualizeProfile = async () => {
+    if (!githubProfile || !user) return
 
-          {/* Quick Actions */}
-          <div className="mb-6 flex items-center gap-3 flex-wrap">
-            <Button onClick={() => window.open('/analyzer', '_blank')} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-              Open Repo Analyzer
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const el = document.getElementById('community')
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                else window.location.hash = 'community'
-              }}
-              className="gap-2"
-            >
-              <span className="relative inline-flex items-center justify-center h-5 w-5 overflow-hidden">
-                <DotLottieIcon src="/icons/community.lottie" size={28 } className="scale-[1.8]" />
-              </span>
-              Community
-            </Button>
-          </div>
+    setVisualizing(true)
+    setError('')
+    try {
+      // Fetch all data
+      const [reposRes, issuesRes, prsRes, contributionsRes] = await Promise.all([
+        fetch(`https://api.github.com/users/${githubProfile.login}/repos?per_page=100&sort=updated`),
+        fetch(`https://api.github.com/search/issues?q=author:${githubProfile.login}+type:issue+is:public&per_page=100`),
+        fetch(`https://api.github.com/search/issues?q=author:${githubProfile.login}+type:pr+is:public&per_page=100`),
+        fetch(`https://api.github.com/users/${githubProfile.login}/events/public?per_page=100`)
+      ])
 
-          {/* Show loading placeholder if session still initializing */}
-          {loading && <LoadingState variant="dashboard" />}
+      const repos = reposRes.ok ? await reposRes.json() : []
+      const issues = issuesRes.ok ? (await issuesRes.json()).items || [] : []
+      const prs = prsRes.ok ? (await prsRes.json()).items || [] : []
+      const contributions = contributionsRes.ok ? await contributionsRes.json() : []
 
-          {/* KPI Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-            {/* Contributions sparkline (last 30d) */}
-            <MiniKPI
-              title="Contributions (30d)"
-              value={useMemo(() => {
-                if (!contriData?.calendar?.days) return 0
-                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
-                const last30 = days.slice(-30)
-                return last30.reduce((s,d)=>s+d.contributionCount,0)
-              }, [contriData?.calendar?.days])}
-              delta={useMemo(() => {
-                if (!contriData?.calendar?.days) return undefined
-                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
-                const last30 = days.slice(-30)
-                const prev30 = days.slice(-60,-30)
-                const a = last30.reduce((s,d)=>s+d.contributionCount,0)
-                const b = prev30.reduce((s,d)=>s+d.contributionCount,0)
-                if (b === 0) return { value: 0, positive: true }
-                const pct = Math.round(((a-b)/b)*100)
-                return { value: Math.abs(pct), positive: pct >= 0 }
-              }, [contriData?.calendar?.days])}
-              series={useMemo(() => {
-                if (!contriData?.calendar?.days) return []
-                const days = [...contriData.calendar.days].sort((a,b)=>a.date.localeCompare(b.date))
-                const last30 = days.slice(-30).map(d=>d.contributionCount)
-                return last30
-              }, [contriData?.calendar?.days])}
-              stroke="#7c3aed"
-              icon={<GitCommit className="w-4 h-4" />}
-            />
+      // Prepare repository list (only important fields)
+      const repoList = repos.slice(0, 100).map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description || '',
+        html_url: repo.html_url,
+        language: repo.language || '',
+        stargazers_count: repo.stargazers_count || 0,
+        forks_count: repo.forks_count || 0,
+      }))
 
-            {/* PRs sparkline */}
-            <MiniKPI
-              title="Pull Requests"
-              value={prs ? prs.totals.total : 0}
-              delta={useMemo(() => 
-                prs ? { value: Math.min(99, Math.round((prs.totals.merged / Math.max(1, prs.totals.total))*100)), positive: true } : undefined,
-                [prs]
-              )}
-              series={useMemo(() => {
-                if (!prs?.recent) return []
-                const counts: Record<string, number> = {}
-                prs.recent.forEach((p:any)=>{ const d = new Date(p.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
-                const keys = Object.keys(counts).sort()
-                return keys.slice(-30).map(k=>counts[k] || 0)
-              }, [prs?.recent])}
-              stroke="#10b981"
-              icon={<GitPullRequest className="w-4 h-4" />}
-            />
+      // Store in database
+      const { error: dbError } = await supabase
+        .from('visualized_profiles')
+        .upsert({
+          user_id: user.id,
+          github_username: githubProfile.login,
+          profile_data: githubProfile,
+          repositories: repoList,
+          stats: {
+            total_repos: repos.length,
+            total_issues: issues.length,
+            total_prs: prs.length,
+            total_contributions: contributions.length,
+          },
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,github_username'
+        })
 
-            {/* Issues sparkline */}
-            <MiniKPI
-              title="Issues"
-              value={issues ? issues.totals.total : 0}
-              delta={useMemo(() => 
-                issues ? { value: Math.min(99, Math.round((issues.totals.closed / Math.max(1, issues.totals.total))*100)), positive: true } : undefined,
-                [issues]
-              )}
-              series={useMemo(() => {
-                if (!issues?.recent) return []
-                const counts: Record<string, number> = {}
-                issues.recent.forEach((i:any)=>{ const d = new Date(i.updated_at).toISOString().slice(0,10); counts[d]=(counts[d]||0)+1 })
-                const keys = Object.keys(counts).sort()
-                return keys.slice(-30).map(k=>counts[k] || 0)
-              }, [issues?.recent])}
-              stroke="#6366f1"
-              icon={<MessageSquare className="w-4 h-4" />}
-            />
-          </div>
+      if (dbError) throw dbError
 
-          {/* Contributions Section */}
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-semibold">Your Contributions</h2>
-                <p className="text-gray-600">Live GitHub activity powered by GraphQL</p>
-              </div>
-              <Badge variant="outline" className="bg-green-50 text-green-700">
-                <Sparkles className="w-3 h-3 mr-1" /> Real-time
-              </Badge>
-            </div>
+      setCurrentVisualized(githubProfile.login)
+      setCurrentVisualizedStorage(githubProfile.login)
+      addToHistory(githubProfile.login)
+      setHistory(getVisualizedHistory())
+      
+      router.push('/repos')
+    } catch (err: any) {
+      setError(err.message || 'Failed to visualize profile')
+    } finally {
+      setVisualizing(false)
+    }
+  }
 
-            {contriLoading ? (
-              <LoadingState variant="heatmap" />
-            ) : contriError ? (
-              <div className="p-6 text-red-600">{contriError}</div>
-            ) : contriData ? (
-              <>
-                {/* KPIs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                  <Card className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Sparkles className="w-5 h-5" /></div>
-                    <div>
-                      <div className="text-sm text-gray-500">Total Contributions</div>
-                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalContributions)}</div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitCommit className="w-5 h-5" /></div>
-                    <div>
-                      <div className="text-sm text-gray-500">Commits</div>
-                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalCommits)}</div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><GitPullRequest className="w-5 h-5" /></div>
-                    <div>
-                      <div className="text-sm text-gray-500">Pull Requests</div>
-                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalPRs)}</div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><MessageSquare className="w-5 h-5" /></div>
-                    <div>
-                      <div className="text-sm text-gray-500">Issues</div>
-                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalIssues)}</div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Calendar className="w-5 h-5" /></div>
-                    <div>
-                      <div className="text-sm text-gray-500">Reviews</div>
-                      <div className="text-xl font-semibold">{numberFormatter.format(contriData.totals.totalReviews)}</div>
-                    </div>
-                  </Card>
-                </div>
-
-                {/* Streaks */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <Card className="p-4">
-                    <div className="text-sm text-gray-500 mb-1">Current Streak</div>
-                    <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> {contriData.streaks.currentStreak} days</div>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="text-sm text-gray-500 mb-1">Longest Streak</div>
-                    <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-red-500" /> {contriData.streaks.longestStreak} days</div>
-                  </Card>
-                </div>
-
-                {/* Heatmap */}
-                <Card className="p-4 mb-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-sm text-gray-500">Contribution Calendar</div>
-                      <div className="text-lg font-semibold">{formatDateUTC(contriData.range.from)} - {formatDateUTC(contriData.range.to)}</div>
-                    </div>
-                  </div>
-                  <ContributionHeatmap days={contriData.calendar.days} />
-                </Card>
-              </>
-            ) : null}
-          </div>
-
-          {/* PRs & Issues & Repos summaries — removed per request */}
-
-          {/* Community section */}
-          <div id="community">
-            <CommunityPanel />
-          </div>
-        </div>
-
-        {/* Right Profile */}
-        <div className="hidden xl:block w-80 shrink-0">
-          <RightProfilePanel />
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
-    </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          {currentVisualized ? `Visualizing: @${currentVisualized}` : 'Fetch and visualize GitHub profiles'}
+        </p>
+      </div>
+      
+      <div className="grid gap-6">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">GitHub Profile Fetcher</h2>
+          <div className="flex gap-3 mb-4">
+            <Input
+              type="text"
+              placeholder="Enter GitHub username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchGitHubProfile()}
+              className="flex-1"
+            />
+            <Button onClick={fetchGitHubProfile} disabled={loadingProfile}>
+              {loadingProfile ? 'Loading...' : 'Fetch Profile'}
+            </Button>
+          </div>
+          {error && (
+            <p className="text-sm text-red-600 mb-4">{error}</p>
+          )}
+        </Card>
+
+        {githubProfile && (
+          <Card className="p-6">
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex-shrink-0">
+                <Avatar className="h-32 w-32">
+                  <AvatarImage src={githubProfile.avatar_url} alt={githubProfile.login} />
+                  <AvatarFallback className="text-2xl">
+                    {githubProfile.login[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-2">
+                    {githubProfile.name || githubProfile.login}
+                    <a
+                      href={githubProfile.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      <Github className="h-5 w-5" />
+                    </a>
+                  </h3>
+                  <p className="text-muted-foreground">@{githubProfile.login}</p>
+                </div>
+
+                {githubProfile.bio && (
+                  <p className="text-sm">{githubProfile.bio}</p>
+                )}
+
+                <div className="flex flex-wrap gap-4 text-sm">
+                  {githubProfile.location && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>{githubProfile.location}</span>
+                    </div>
+                  )}
+                  {githubProfile.company && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span>{githubProfile.company}</span>
+                    </div>
+                  )}
+                  {githubProfile.blog && (
+                    <a
+                      href={githubProfile.blog}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+                    >
+                      <LinkIcon className="h-4 w-4" />
+                      <span>{githubProfile.blog}</span>
+                    </a>
+                  )}
+                </div>
+
+                <div className="flex gap-6 text-sm">
+                  <div>
+                    <span className="font-semibold">{githubProfile.followers}</span>
+                    <span className="text-muted-foreground ml-1">followers</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold">{githubProfile.following}</span>
+                    <span className="text-muted-foreground ml-1">following</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold">{githubProfile.public_repos}</span>
+                    <span className="text-muted-foreground ml-1">repositories</span>
+                  </div>
+                </div>
+
+                {githubProfile.created_at && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      Joined {new Date(githubProfile.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                <div className="pt-4">
+                  <Button 
+                    onClick={visualizeProfile} 
+                    disabled={visualizing}
+                    size="lg"
+                    className="w-full md:w-auto"
+                  >
+                    {visualizing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Visualizing...
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Visualize Profile
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {history.length > 0 && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="h-5 w-5" />
+              <h2 className="text-xl font-semibold">Visualization History</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {history.map((username) => (
+                <Button
+                  key={username}
+                  variant={currentVisualized === username ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setCurrentVisualized(username)
+                    setCurrentVisualizedStorage(username)
+                    router.push('/repos')
+                  }}
+                >
+                  @{username}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+    </DashboardLayout>
   )
 }

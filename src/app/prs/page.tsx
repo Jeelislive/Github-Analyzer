@@ -1,147 +1,196 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { GitPullRequest, Clock, ExternalLink, GitMerge } from 'lucide-react'
-import AppShell from '@/components/dashboard/AppShell'
-import LoadingState from '@/components/ui/LoadingState'
-import { useApiCache } from '@/hooks/useApiCache'
-import { useSectionCache } from '@/hooks/useSectionCache'
-import { repoFrom, timeAgo } from '@/lib/format'
-import PRStatus from '@/components/github/PRStatus'
+import { Button } from '@/components/ui/button'
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import { getCurrentVisualized } from '@/lib/github-data'
+import { Octokit } from '@octokit/rest'
+import { Github } from 'lucide-react'
 
-interface PRResponse {
-  totals: { total: number; open: number; merged: number; reviewed: number; avgTimeToMergeMs: number | null }
-  recent: Array<{ id: number; number: number; title: string; state: 'open' | 'closed'; merged: boolean; html_url: string; repository_url: string; updated_at: string }>
+interface PR {
+  id: number
+  number: number
+  title: string
+  state: string
+  html_url: string
+  repository_url: string
+  created_at: string
+  updated_at: string
+  pull_request?: { merged_at: string | null }
 }
 
 export default function PRsPage() {
-  const { data, loading, error } = useApiCache<PRResponse>('/api/github/prs', {
-    cacheKey: 'prs-summary'
-  })
-  
-  type Section = 'all' | 'open' | 'merged' | 'closed'
-  type Item = { id: number; number: number; title: string; state: 'open' | 'closed'; merged: boolean; html_url: string; repository_url: string; updated_at: string }
-  const [sections, setSections] = useState<Record<Section, { items: Item[]; page?: number; total?: number; loaded?: boolean; loading: boolean }>>({
-    all: { items: [], page: 0, total: 0, loaded: false, loading: false },
-    open: { items: [], page: 0, total: 0, loaded: false, loading: false },
-    merged: { items: [], page: 0, total: 0, loaded: false, loading: false },
-    closed: { items: [], page: 0, total: 0, loaded: false, loading: false },
-  })
-  const [activeTab, setActiveTab] = useState<Section>('all')
+  const [prs, setPrs] = useState<PR[]>([])
+  const [loading, setLoading] = useState(true)
+  const [username, setUsername] = useState<string | null>(null)
+  const [filter, setFilter] = useState<'all' | 'open' | 'merged' | 'closed'>('all')
 
-  const { loadSection } = useSectionCache(sections, setSections, '/api/github/prs')
-
-  // Initial load only for default tab
   useEffect(() => {
-    loadSection('all')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const currentUser = getCurrentVisualized()
+    setUsername(currentUser)
+    if (currentUser) {
+      fetchAllPRs(currentUser)
+    } else {
+      setLoading(false)
+    }
   }, [])
 
-  // Load on tab change if not yet loaded
-  useEffect(() => {
-    const s = sections[activeTab]
-    if (!s.loaded && !s.loading) {
-      loadSection(activeTab)
+  const fetchAllPRs = async (user: string) => {
+    setLoading(true)
+    try {
+      const octokit = new Octokit()
+      const allPRs: PR[] = []
+      let page = 1
+      
+      while (true) {
+        const { data } = await octokit.search.issuesAndPullRequests({
+          q: `author:${user} type:pr is:public`,
+          per_page: 100,
+          page,
+          sort: 'updated',
+          order: 'desc'
+        })
+        if (!data.items || data.items.length === 0) break
+        allPRs.push(...data.items.map((item: any) => ({
+          id: item.id,
+          number: item.number,
+          title: item.title,
+          state: item.state,
+          html_url: item.html_url,
+          repository_url: item.repository_url,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          pull_request: item.pull_request,
+        })))
+        if (data.items.length < 100 || allPRs.length >= 1000) break
+        page++
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      setPrs(allPRs)
+    } catch (error) {
+      console.error('Failed to fetch PRs:', error)
+    } finally {
+      setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
+  }
 
-  if (loading || error || !data) {
+  const filteredPRs = prs.filter(pr => {
+    if (filter === 'open') return pr.state === 'open'
+    if (filter === 'merged') return pr.pull_request?.merged_at
+    if (filter === 'closed') return pr.state === 'closed' && !pr.pull_request?.merged_at
+    return true
+  })
+
+  const openPRs = prs.filter(pr => pr.state === 'open')
+  const mergedPRs = prs.filter(pr => pr.pull_request?.merged_at)
+  const closedPRs = prs.filter(pr => pr.state === 'closed' && !pr.pull_request?.merged_at)
+
+  if (loading) {
     return (
-      <AppShell>
-        <div className="w-full px-6 py-6">
-          {loading && <LoadingState variant="page" />}
-          {error && <div className="text-red-600">{error}</div>}
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading pull requests...</p>
+          </div>
         </div>
-      </AppShell>
+      </DashboardLayout>
     )
   }
 
-  const days = data.totals.avgTimeToMergeMs != null ? Math.round(data.totals.avgTimeToMergeMs / (1000*60*60*24)) : null
-
-  // Helpers moved to src/lib/format
-
-  const closedCount = Math.max(0, data.totals.total - data.totals.open - data.totals.merged)
+  if (!username) {
+    return (
+      <DashboardLayout>
+        <h1 className="text-3xl font-bold mb-6">Pull Requests</h1>
+        <Card className="p-6">
+          <p className="text-muted-foreground">
+            No profile visualized. Go to dashboard to fetch and visualize a GitHub profile.
+          </p>
+        </Card>
+      </DashboardLayout>
+    )
+  }
 
   return (
-    <AppShell>
-      <div className="w-full px-6 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Pull Requests</h1>
-            <p className="text-gray-600">Your PR activity across public repositories</p>
-          </div>
-          <Badge variant="outline" className="bg-gray-50 text-gray-700"><GitPullRequest className="w-4 h-4 mr-1"/> Live</Badge>
-        </div>
+    <DashboardLayout>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Pull Requests</h1>
+        <p className="text-muted-foreground">Viewing {prs.length} pull requests for @{username}</p>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="p-4">
-            <div className="text-sm text-gray-500">Total PRs</div>
-            <div className="text-2xl font-semibold">{data.totals.total.toLocaleString()}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-sm text-gray-500">Merged</div>
-            <div className="text-2xl font-semibold">{data.totals.merged.toLocaleString()}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-sm text-gray-500">Open</div>
-            <div className="text-2xl font-semibold">{data.totals.open.toLocaleString()}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-sm text-gray-500 flex items-center gap-2">Avg Time to Merge <Clock className="w-4 h-4"/></div>
-            <div className="text-2xl font-semibold">{days != null ? `${days}d` : '—'}</div>
-          </Card>
-        </div>
-
-        {/* Tabs */}
-        <div className="mb-3 flex items-center gap-2 text-xs">
-          <button className={`px-2.5 py-1 rounded-md border ${activeTab==='all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('all')}>All ({data.totals.total.toLocaleString()})</button>
-          <button className={`px-2.5 py-1 rounded-md border ${activeTab==='open' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('open')}>Open ({data.totals.open.toLocaleString()})</button>
-          <button className={`px-2.5 py-1 rounded-md border ${activeTab==='merged' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('merged')}>Merged ({data.totals.merged.toLocaleString()})</button>
-          <button className={`px-2.5 py-1 rounded-md border ${activeTab==='closed' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={()=>setActiveTab('closed')}>Closed ({closedCount.toLocaleString()})</button>
-        </div>
-
-        {/* Active Section List */}
-        <Card className="p-0 overflow-hidden">
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            <div className="text-sm font-medium">
-              {activeTab === 'all' && 'All PRs'}
-              {activeTab === 'open' && 'Open PRs'}
-              {activeTab === 'merged' && 'Merged PRs'}
-              {activeTab === 'closed' && 'Closed PRs'}
+      <div className="grid gap-4 mb-6">
+        <Card className="p-4">
+          <div className="flex gap-6">
+            <div>
+              <span className="text-2xl font-bold">{prs.length}</span>
+              <span className="text-muted-foreground ml-2">Total</span>
             </div>
-          </div>
-          <div className="divide-y">
-            {sections[activeTab].items.map((p) => (
-              <a key={p.id} href={p.html_url} target="_blank" rel="noopener noreferrer" className="group block px-4 py-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 inline-flex items-center justify-center rounded-md p-1.5 ${p.state==='open' ? 'bg-green-50 text-green-700' : (p.merged ? 'bg-purple-50 text-purple-700' : 'bg-red-50 text-red-700')}`}>
-                    {p.state === 'open' ? <GitPullRequest className="w-4 h-4" /> : (p.merged ? <GitMerge className="w-4 h-4" /> : <GitPullRequest className="w-4 h-4" />)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm text-gray-900 truncate group-hover:underline">{p.title}</div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 flex-wrap">
-                      <Badge variant="outline" className="px-1.5 py-0.5 text-xs">{repoFrom(p.repository_url)}#{p.number}</Badge>
-                      <PRStatus state={p.state} merged={p.merged} />
-                      <span>Updated {timeAgo(p.updated_at)}</span>
-                    </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0 mt-0.5" />
-                </div>
-              </a>
-            ))}
-            {sections[activeTab].items.length === 0 && !sections[activeTab].loading && (
-              <div className="px-4 py-8 text-sm text-gray-600">No PRs found.</div>
-            )}
-            {sections[activeTab].loading && (
-              <div className="px-4 py-8 text-sm text-gray-600">Loading…</div>
-            )}
+            <div>
+              <span className="text-2xl font-bold text-green-600">{openPRs.length}</span>
+              <span className="text-muted-foreground ml-2">Open</span>
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-purple-600">{mergedPRs.length}</span>
+              <span className="text-muted-foreground ml-2">Merged</span>
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-gray-600">{closedPRs.length}</span>
+              <span className="text-muted-foreground ml-2">Closed</span>
+            </div>
           </div>
         </Card>
       </div>
-    </AppShell>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>
+          All ({prs.length})
+        </Button>
+        <Button variant={filter === 'open' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('open')}>
+          Open ({openPRs.length})
+        </Button>
+        <Button variant={filter === 'merged' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('merged')}>
+          Merged ({mergedPRs.length})
+        </Button>
+        <Button variant={filter === 'closed' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('closed')}>
+          Closed ({closedPRs.length})
+        </Button>
+      </div>
+
+      {filteredPRs.length === 0 ? (
+        <Card className="p-6">
+          <p className="text-muted-foreground">No pull requests found.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {filteredPRs.map((pr) => (
+            <Card key={pr.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold">{pr.title}</h3>
+                    <a href={pr.html_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                      <Github className="h-4 w-4" />
+                    </a>
+                  </div>
+                  <div className="flex gap-4 text-sm text-muted-foreground">
+                    {pr.pull_request?.merged_at ? (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">merged</span>
+                    ) : (
+                      <span className={`px-2 py-1 rounded ${pr.state === 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {pr.state}
+                      </span>
+                    )}
+                    <span>#{pr.number}</span>
+                    <span>Updated {new Date(pr.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </DashboardLayout>
   )
 }
-

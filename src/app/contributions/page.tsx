@@ -1,131 +1,123 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { useSession, signIn } from 'next-auth/react'
+import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import ContributionHeatmap, { HeatmapDay } from '@/components/github/ContributionHeatmap'
-import { Brain, Calendar, Flame, GitCommit, GitPullRequest, MessageSquare, Sparkles } from 'lucide-react'
-
-interface ContributionsResponse {
-  user: { login: string; name?: string | null }
-  range: { from: string; to: string }
-  totals: {
-    totalContributions: number
-    totalCommits: number
-    totalIssues: number
-    totalPRs: number
-    totalReviews: number
-    restricted: number
-    startedAt: string
-    endedAt: string
-    years: number[]
-  }
-  streaks: { currentStreak: number; longestStreak: number }
-  calendar: { total: number; days: HeatmapDay[] }
-}
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import { getCurrentVisualized } from '@/lib/github-data'
 
 export default function ContributionsPage() {
-  const { data: session, status } = useSession()
-  const [data, setData] = useState<ContributionsResponse | null>(null)
+  const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      setLoading(true)
-      fetch('/api/github/contributions?range=365d')
-        .then(async (res) => {
-          if (!res.ok) throw new Error(await res.text())
-          return res.json()
-        })
-        .then((json) => setData(json))
-        .catch((e) => setError(e?.message || 'Failed to load'))
-        .finally(() => setLoading(false))
-    } else if (status === 'unauthenticated') {
+    const currentUser = getCurrentVisualized()
+    setUsername(currentUser)
+    
+    if (currentUser) {
+      fetchContributions(currentUser)
+    } else {
       setLoading(false)
     }
-  }, [status])
+  }, [])
 
-  const kpis = useMemo(() => {
-    if (!data) return []
-    return [
-      { label: 'Total Contributions', value: data.totals.totalContributions, icon: Sparkles },
-      { label: 'Commits', value: data.totals.totalCommits, icon: GitCommit },
-      { label: 'Pull Requests', value: data.totals.totalPRs, icon: GitPullRequest },
-      { label: 'Issues', value: data.totals.totalIssues, icon: MessageSquare },
-      { label: 'Reviews', value: data.totals.totalReviews, icon: Calendar },
-    ]
-  }, [data])
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  const fetchContributions = async (user: string) => {
+      setLoading(true)
+    try {
+      const response = await fetch(`https://api.github.com/users/${user}/events/public?per_page=100`)
+      if (response.ok) {
+        const data = await response.json()
+        setEvents(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch contributions:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (status === 'unauthenticated') {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-semibold">Sign in with GitHub to view your contributions</h1>
-        <Button onClick={() => signIn('github')}>Sign in</Button>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading contributions...</p>
+          </div>
       </div>
+      </DashboardLayout>
     )
   }
 
-  if (error) {
-    return <div className="p-6 text-red-600">{error}</div>
+  if (!username) {
+    return (
+      <DashboardLayout>
+        <h1 className="text-3xl font-bold mb-6">Contributions</h1>
+        <Card className="p-6">
+          <p className="text-muted-foreground">
+            No profile visualized. Go to dashboard to fetch and visualize a GitHub profile.
+          </p>
+        </Card>
+      </DashboardLayout>
+    )
   }
 
+  const eventTypes = events.reduce((acc: any, event) => {
+    acc[event.type] = (acc[event.type] || 0) + 1
+    return acc
+  }, {})
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Contributions Dashboard</h1>
-          <p className="text-gray-600">Real-time GitHub activity for {data?.user.name || data?.user.login}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-blue-50 text-blue-700">
-            <Brain className="w-3 h-3 mr-1" />
-            Powered by GitHub GraphQL
-          </Badge>
-        </div>
+    <DashboardLayout>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Contributions</h1>
+        <p className="text-muted-foreground">Viewing contributions for @{username}</p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {kpis.map(({ label, value, icon: Icon }) => (
-          <Card key={label} className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-md bg-gray-100 text-gray-700"><Icon className="w-5 h-5" /></div>
+      <div className="grid gap-4 mb-6">
+        <Card className="p-4">
+          <div className="flex gap-6">
             <div>
-              <div className="text-sm text-gray-500">{label}</div>
-              <div className="text-xl font-semibold">{value.toLocaleString()}</div>
+              <span className="text-2xl font-bold">{events.length}</span>
+              <span className="text-muted-foreground ml-2">Total Events</span>
             </div>
-          </Card>
-        ))}
       </div>
-
-      {/* Streaks */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500 mb-1">Current Streak</div>
-          <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> {data?.streaks.currentStreak} days</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-gray-500 mb-1">Longest Streak</div>
-          <div className="text-2xl font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-red-500" /> {data?.streaks.longestStreak} days</div>
         </Card>
       </div>
 
-      {/* Heatmap */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="text-sm text-gray-500">Contribution Calendar</div>
-            <div className="text-lg font-semibold">{new Date(data!.range.from).toLocaleDateString()} - {new Date(data!.range.to).toLocaleDateString()}</div>
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Activity Types</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {Object.entries(eventTypes).map(([type, count]: [string, any]) => (
+            <div key={type} className="p-3 bg-muted rounded">
+              <div className="text-sm text-muted-foreground">{type}</div>
+              <div className="text-xl font-bold">{count}</div>
           </div>
+          ))}
         </div>
-        <ContributionHeatmap days={data!.calendar.days} />
       </Card>
+
+      {events.length === 0 ? (
+        <Card className="p-6 mt-4">
+          <p className="text-muted-foreground">No contributions found.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 mt-4">
+          {events.slice(0, 30).map((event, idx) => (
+            <Card key={idx} className="p-4">
+              <div className="text-sm">
+                <span className="font-medium">{event.type}</span>
+                {event.repo && (
+                  <span className="text-muted-foreground ml-2">in {event.repo.name}</span>
+                )}
+                <span className="text-muted-foreground ml-2">
+                  {new Date(event.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            </Card>
+          ))}
     </div>
+      )}
+    </DashboardLayout>
   )
 }

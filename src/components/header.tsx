@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Github, Menu, X, User, LogOut, BookOpen } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
+import { Github, Menu, X, User, LogOut } from 'lucide-react'
+import { useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import GithubStarButton from '@/components/GithubStarButton'
+import DotLottieIcon from '@/components/DotLottieIcon'
+import { useAuth } from '@/components/auth/AuthProvider'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,34 +17,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdownMenu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import GithubStarButton from '@/components/GithubStarButton'
-import DotLottieIcon from '@/components/DotLottieIcon'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { data: session, status, update } = useSession()
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, loading } = useAuth()
   const showMarketingNav = pathname === '/'
 
-  // Force session refresh on mount to catch OAuth redirects
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      update()
-    }
-  }, [status, update])
-
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/' })
+  const handleLogout = async () => {
+    await fetch('/auth/logout', { method: 'POST' })
+    router.push('/')
+    router.refresh()
   }
 
-  const getUserInitials = (name: string | null | undefined) => {
-    if (!name) return 'U'
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
+  const getUserInitials = (email: string | undefined) => {
+    if (!email) return 'U'
+    return email[0].toUpperCase()
   }
 
 
@@ -71,32 +62,31 @@ export default function Header() {
           </nav>
         )}
 
-        {/* Desktop Auth Buttons */}
+        {/* Desktop Buttons */}
         <div className="hidden md:flex items-center space-x-4">
-          {status === 'loading' ? (
+          <GithubStarButton />
+          {loading ? (
             <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
-          ) : session?.user ? (
-            <>
-            <GithubStarButton />
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={session.user.image || ""} alt={session.user.name || "User"} />
+                    <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email} />
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getUserInitials(session.user.name)}
+                      {getUserInitials(user.email)}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
+              <DropdownMenuContent className="w-56" align="end">
+                <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {session.user.name || 'User'}
+                      {user.user_metadata?.full_name || user.email}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {session.user.email}
+                      {user.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -107,26 +97,15 @@ export default function Header() {
                     <span>Dashboard</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/docs" className="w-full cursor-pointer">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    <span>Documentation</span>
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={handleSignOut}
-                  className="cursor-pointer text-red-600 focus:text-red-600"
-                >
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            </>
           ) : (
             <>
-              <GithubStarButton />
               <Link href="/auth">
                 <Button variant="outline" size="sm">
                   Sign In
@@ -180,40 +159,43 @@ export default function Header() {
               </>
             )}
             <div className="flex flex-col space-y-2 pt-4">
-              {status === 'loading' ? (
+              <a
+                href="https://github.com/Jeelislive/Github-Analyzer"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open GitHub repository"
+                className="w-full flex items-center justify-center border rounded-md py-2 text-sm hover:bg-muted"
+              >
+                <Github className="h-4 w-4" />
+              </a>
+              {loading ? (
                 <div className="w-full h-8 bg-muted rounded animate-pulse" />
-              ) : session?.user ? (
-                <div className="flex items-center space-x-2 p-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={session.user.image || ""} alt={session.user.name || "User"} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getUserInitials(session.user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{session.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{session.user.email}</p>
+              ) : user ? (
+                <>
+                  <div className="flex items-center space-x-2 p-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {getUserInitials(user.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{user.user_metadata?.full_name || user.email}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleSignOut}
+                    onClick={handleLogout}
                     className="text-red-600"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Log out
                   </Button>
-                </div>
+                </>
               ) : (
                 <>
-                  <a
-                    href="https://github.com/Jeelislive/Github-Analyzer"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Open GitHub repository"
-                    className="w-full flex items-center justify-center border rounded-md py-2 text-sm hover:bg-muted"
-                  >
-                    <Github className="h-4 w-4" />
-                  </a>
                   <Link href="/auth">
                     <Button variant="outline" size="sm" className="w-full">
                       Sign In

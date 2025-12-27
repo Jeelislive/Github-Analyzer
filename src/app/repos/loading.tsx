@@ -1,13 +1,13 @@
 'use client'
 
 import React from 'react'
-import AppShell from '@/components/dashboard/AppShell'
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import { Card } from '@/components/ui/card'
 
 export default function ReposLoading() {
   return (
-    <AppShell>
-      <div className="w-full px-6 py-6 space-y-4">
+    <DashboardLayout>
+      <div className="space-y-4">
         <div className="h-8 w-60 bg-gray-100 rounded animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -19,6 +19,6 @@ export default function ReposLoading() {
           ))}
         </div>
       </div>
-    </AppShell>
+    </DashboardLayout>
   )
 }
